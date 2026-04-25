@@ -1,0 +1,38 @@
+{
+  "name": "@sentiolabs/pi-arc",
+  "version": "0.8.0",
+  "description": "Arc issue tracker integration for Pi.",
+  "keywords": [
+    "pi-package",
+    "arc",
+    "issue-tracker",
+    "agent-memory",
+    "ai-workflow"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "Sentio Labs",
+    "url": "https://github.com/sentiolabs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sentiolabs/pi-arc"
+  },
+  "homepage": "https://github.com/sentiolabs/pi-arc",
+  "peerDependencies": {
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "pi": {
+    "skills": [
+      "./skills"
+    ],
+    "prompts": [
+      "./prompts/*.md"
+    ],
+    "extensions": [
+      "./extensions/*.ts"
+    ]
+  }
+}
