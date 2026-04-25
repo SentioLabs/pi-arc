@@ -9,7 +9,7 @@ Dispatch the `code-reviewer` subagent to review implementation work, then triage
 
 ## Workflow
 
-Create a an explicit checklist checklist with these steps:
+Create a checklist using the bundled `todo` tool (or `/todos`) with these steps:
 
 ### 1. Get Git SHAs
 
@@ -47,7 +47,7 @@ Extract the design excerpt relevant to this task — typically the sections cove
 
 Use the arc_agent tool to spawn an `code-reviewer` subagent. Fill the template at `./code-reviewer-prompt.md` with the gathered placeholders (`{TASK_ID}`, `{BASE_SHA}`, `{HEAD_SHA}`, `{DESIGN_EXCERPT}`, `{EVALUATOR_STATUS}`).
 
-**Model tier:** Follow the Model Selection table in `../arc-build/SKILL.md`. For most reviews, omit `model:` (use the agent's sonnet default). Escalate to `opus` when the diff is large (10+ files), crosses multiple architectural layers, or involves security-sensitive changes.
+**Model tier:** Follow the Model Selection table in `../arc-build/SKILL.md`. For most reviews, omit `model:` (use the agent's `standard` default). Escalate to `large` when the diff is large (10+ files), crosses multiple architectural layers, or involves security-sensitive changes.
 
 ### 4. Triage Feedback
 
@@ -146,12 +146,12 @@ You are not expected to write or run tests — that's still the evaluator's job 
 
 ## Contexts
 
-This skill works in both execution models:
+This skill works in orchestrated Arc execution:
 
 | Context | How review works |
 |---------|-----------------|
-| **Single-agent** | Main agent dispatches `code-reviewer` subagent |
-| **Team mode** | Team lead dispatches QA teammate or `code-reviewer` subagent |
+| **Sequential build** | Main agent dispatches `code-reviewer` subagent after the builder reports completion |
+| **Parallel patch batch** | Main agent applies each accepted patch to the main worktree, then dispatches `code-reviewer` against the applied diff |
 
 ## Rules
 

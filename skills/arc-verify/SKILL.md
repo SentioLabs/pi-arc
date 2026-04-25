@@ -15,7 +15,7 @@ Run proof commands and read their output before making any completion claim.
 
 ## Gate Sequence
 
-Create a an explicit checklist checklist with these steps:
+Create a checklist using the bundled `todo` tool (or `/todos`) with these steps:
 
 ### 1. IDENTIFY
 

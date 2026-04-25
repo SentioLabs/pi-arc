@@ -13,7 +13,7 @@ Explore requirements through Socratic dialogue before any implementation begins.
 
 ## Workflow
 
-Create a task for each step below using `an explicit checklist`. Mark each as `in_progress` when starting and `completed` when done. This creates a visible progress list in the CLI that carries forward into the plan skill.
+Create a task for each step below using the bundled `todo` checklist (via `todo` tool / `/todos`). Mark each as `in_progress` when starting and `completed` when done. This creates a visible progress list in the CLI that carries forward into the plan skill.
 
 ### 1. Explore Project Context
 
@@ -26,12 +26,12 @@ Create a task for each step below using `an explicit checklist`. Mark each as `i
 ### 2. Ask Clarifying Questions
 
 - Ask questions **one at a time** — don't dump a list
-- **Use the user prompt with numbered options** for multiple-choice decisions (2-4 options)
+- **Use the `ask_user_question` tool** for multiple-choice decisions (2-4 options)
 - Use open-ended text questions only when you need freeform feedback
 - Understand: purpose, constraints, success criteria, target users
 - Continue until you have enough to propose approaches
 
-**Example user prompt with numbered options usage:**
+**Example `ask_user_question` usage:**
 ```
 Question: "How should we handle session persistence?"
 Options:
@@ -44,10 +44,10 @@ Options:
 
 - Each approach: summary, trade-offs, estimated complexity
 - Include a recommendation with reasoning
-- **Use the user prompt with numbered options** to present approaches as structured choices
+- **Use the `ask_user_question` tool** to present approaches as structured choices
 - Apply YAGNI — remove features from all designs that aren't explicitly required
 
-**Example user prompt with numbered options usage:**
+**Example `ask_user_question` usage:**
 ```
 Question: "Which approach should we go with?"
 Options:
@@ -56,7 +56,7 @@ Options:
   - "Approach C: ..." (trade-offs...)
 ```
 
-**Capability-aware hint:** When comparing approaches, surface which imply heavier subagent model tiers during implementation. Approaches with more cross-cutting concerns, more files touched, or tighter coupling between components will likely need `opus`-tier dispatches and more review cycles. Approaches that decompose cleanly into single-file, mechanical tasks will run on `haiku`/`sonnet` and iterate faster. This is a soft consideration, not a deciding factor — but the user should see it.
+**Capability-aware hint:** When comparing approaches, surface which imply heavier subagent model tiers during implementation. Approaches with more cross-cutting concerns, more files touched, or tighter coupling between components will likely need `large`-tier dispatches and more review cycles. Approaches that decompose cleanly into single-file, mechanical tasks will run on `small`/`standard` and iterate faster. This is a soft consideration, not a deciding factor — but the user should see it.
 
 ### 4. Present Design Section by Section
 
@@ -154,7 +154,7 @@ Plan ready for review:
 
 Replace `localhost:7432` with the actual server URL if different (check `ARC_SERVER` env var or the arc config).
 
-Then use the **user prompt with numbered options** — include the planner URL directly in the options so the user sees it without scrolling:
+Then use the **`ask_user_question` tool** — include the planner URL directly in the options so the user sees it without scrolling:
 ```
 Question: "Plan ready for review at http://localhost:7432/planner/<plan-id> — how would you like to proceed?"
 Options:
@@ -219,7 +219,7 @@ Scale:            Small / Medium / Large
 - **→ arc:build** when ALL of: single work item, no shared contracts, single layer, no risk areas, small scale
 - When borderline, recommend `arc:plan` — the overhead of planning is low, but the cost of a disorganized multi-task implementation is high
 
-After the analysis, use the **user prompt with numbered options** — mark the recommended option:
+After the analysis, use the **`ask_user_question` tool** — mark the recommended option:
 ```
 Question: "Design approved! What's next?"
 Options:
@@ -247,6 +247,6 @@ If `/arc-build` is recommended instead, swap which option gets the "(recommended
 - The ONLY next skill after brainstorm is `plan` (or `implement` for small work)
 - Never invoke implementation skills from brainstorm
 - Design documents go in `docs/plans/` and are registered via `arc plan create <file-path>`
-- Arc issues track persistent work; an explicit checklist in the conversation tracks workflow progress in the CLI
+- Arc issues track persistent work; the bundled `todo` checklist tracks in-session workflow progress in the CLI
 - YAGNI: if the user didn't ask for it, don't design it
 - Format all arc content (descriptions, plans, comments) per `skills/arc/_formatting.md`

@@ -35,7 +35,7 @@ Code blocks represent the **intent, structure, and behavior** — not a characte
 
 ## Workflow
 
-Add tasks for each step below using `an explicit checklist`. If continuing from the brainstorm skill, the brainstorm tasks will already be visible — add the planning tasks alongside them so the user sees the full brainstorm→plan progression. Mark each as `in_progress` when starting and `completed` when done.
+Add tasks for each step below using the bundled `todo` checklist (via `todo` tool / `/todos`). If continuing from the brainstorm skill, the brainstorm tasks will already be visible — add the planning tasks alongside them so the user sees the full brainstorm→plan progression. Mark each as `in_progress` when starting and `completed` when done.
 
 ### 1. Read the Design
 
@@ -138,7 +138,7 @@ When identifying tasks, assign **file ownership** — each file should be owned 
 
 ### 4. Create Epic and Tasks via issue-manager
 
-**Model tier:** `issue-manager` defaults to `haiku` — the right tier for CLI formatting and bulk issue creation. For this dispatch, omit `model:`. See the Model Selection table in `../arc-build/SKILL.md` for the full guidance.
+**Model tier:** `issue-manager` defaults to `small` — the right tier for CLI formatting and bulk issue creation. For this dispatch, omit `model:`. See the Model Selection table in `../arc-build/SKILL.md` for the full guidance.
 
 **Never run `arc create` directly** — always delegate to the `issue-manager` agent. This keeps bulk CLI output in a disposable subagent context.
 
@@ -238,7 +238,7 @@ Fix issues inline. No need to re-review — just fix and move on.
 
 ### 7. Choose Execution Path
 
-**Use the user prompt with numbered options** to let the user choose:
+**Use the `ask_user_question` tool** to let the user choose:
 
 ```
 Question: "Epic and tasks created. How should we proceed with implementation?"
@@ -339,7 +339,7 @@ For `docs-only` tasks, omit `## Test Command` and use `## Verification` instead:
 - Never reference external docs or the full plan in task descriptions — everything needed is in the description
 - Design documents live in `docs/plans/` and are registered via `arc plan create`
 - Task descriptions must include actual code guidance, not vague instructions
-- Team preparation (teammate labels) is optional — only if user chooses team execution
+- `teammate:*` labels may be used as planning metadata, but Pi does not support Claude-style team deployment. Use `/arc-build` for orchestrated sequential work or independent `pi-subagents` parallel batches when available.
 - The plan skill creates tasks; it does not implement them
 - The plan skill never runs `arc create` directly — always delegate to `issue-manager`
 - Every task must include a `## Scope Boundary` section — no file modifications outside the `## Files` list

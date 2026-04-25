@@ -13,27 +13,59 @@ Orchestrate task implementation by dispatching fresh `builder` subagents per tas
 
 ## Model Selection
 
-Every arc_agent dispatch can override the subagent's frontmatter model via the `model:` parameter. Use this to match model tier to task complexity. The default floor per agent is set in frontmatter — use these overrides to downgrade for trivial tasks or escalate for complex ones.
+Every Arc subagent dispatch can override the subagent's frontmatter model via the `model:` parameter. Before dispatching, assess the task size/risk and choose the smallest model tier that is likely to succeed. The default floor per agent is set in frontmatter — use overrides to downgrade trivial tasks or escalate complex/high-risk tasks.
+
+`arc_agent` resolves Arc model tiers through `arc.modelTiers` in Pi settings. Defaults are:
+
+| Tier | Default concrete model | Use for |
+|---|---|---|
+| `small` | `openai-codex/gpt-5.4-mini` | Mechanical edits, docs, CLI issue operations |
+| `standard` | `openai-codex/gpt-5.3-codex` | Normal contained implementation/review |
+| `large` | `openai-codex/gpt-5.5` | Cross-cutting, architectural, security-sensitive, or adversarial review |
+
+Users can override the tier map in `~/.pi/agent/settings.json` or project `.pi/settings.json`:
+
+```json
+{
+  "arc": {
+    "modelTiers": {
+      "small": "openai-codex/gpt-5.4-mini",
+      "standard": "openai-codex/gpt-5.3-codex",
+      "large": "openai-codex/gpt-5.5"
+    }
+  }
+}
+```
+
+Legacy aliases still resolve for compatibility: `haiku` → `small`, `sonnet` → `standard`, `opus` → `large`. Prefer the Pi-native tier names in new prompts.
+
+Prefer the `subagent` tool from `pi-subagents` when it is available **and** Arc agent definitions such as `arc-builder` are installed. If Arc specialist definitions are missing, run `/arc-subagents-sync` (project default) or `/arc-subagents-sync user`, then re-check with `subagent({ action: "list" })`. Otherwise use the bundled `arc_agent` fallback. `arc_agent` is self-contained and sequential only; `pi-subagents` adds chains, async runs, and worktree-isolated parallel patch generation.
 
 | Task signal | Dispatch `model:` |
 |---|---|
-| Mechanical: 1-2 files, spec unambiguous, no cross-cutting concerns | `haiku` (downgrade from sonnet floor) |
-| Standard: integration work, multi-file but contained, unambiguous | omit `model:` (use agent default) |
-| Complex: 3+ files, cross-layer, design judgment required, migrations, breaking changes | `opus` |
-| Re-dispatch after `BLOCKED` | escalate one tier (haiku → sonnet → opus); stop at opus |
+| Mechanical: 1-2 files, spec unambiguous, no cross-cutting concerns | `small` |
+| Standard: integration work, multi-file but contained, unambiguous | omit `model:` (use agent default) or `standard` |
+| Complex: 3+ files, cross-layer, design judgment required, migrations, breaking changes | `large` |
+| Re-dispatch after `BLOCKED` | escalate one tier (`small` → `standard` → `large`); stop at `large` |
 | Re-dispatch after `NEEDS_CONTEXT` | same tier, richer context |
 
 Examples:
 
 ```text
-arc_agent(agent="builder", model="haiku", task="...")       # mechanical
-arc_agent(agent="builder", task="...")                      # standard (sonnet)
-arc_agent(agent="builder", model="opus", task="...")        # complex
+# Self-contained fallback:
+arc_agent(agent="builder", model="small", task="...")       # mechanical
+arc_agent(agent="builder", task="...")                      # standard default
+arc_agent(agent="builder", model="large", task="...")       # complex
+
+# Preferred when pi-subagents Arc agents are installed:
+subagent({ agent: "arc-builder", task: "...", model: "openai-codex/gpt-5.4-mini", context: "fresh" })
+subagent({ agent: "arc-builder", task: "...", model: "openai-codex/gpt-5.3-codex", context: "fresh" })
+subagent({ agent: "arc-builder", task: "...", model: "openai-codex/gpt-5.5", context: "fresh" })
 ```
 
 **When unsure, omit `model:`** — the agent's frontmatter floor is calibrated for the typical case.
 
-**Escalation rule:** If a subagent returns `BLOCKED` with a reasoning or capability complaint, re-dispatch with the next tier up before asking the human. Stop escalating at opus — if opus also returns `BLOCKED`, escalate to the human with the subagent's blocker summary.
+**Escalation rule:** If a subagent returns `BLOCKED` with a reasoning or capability complaint, re-dispatch with the next tier up before asking the human. Stop escalating at `large` — if `large` also returns `BLOCKED`, escalate to the human with the subagent's blocker summary.
 
 ## Dispatch Modes
 
@@ -47,15 +79,23 @@ Tasks are dispatched one at a time through the orchestration loop below. Use thi
 
 ### Parallel
 
-Parallel worktree dispatch is **not available in the current Pi package**. The `arc_agent` tool currently supports sequential subprocess execution only and will reject `isolation: "worktree"`.
+Parallel worktree dispatch is available **only** through the optional `pi-subagents` companion package, not through `arc_agent`. Use it only when ALL of these are true:
+- `pi-subagents` is installed and the `subagent` tool is available
+- Arc agent definitions such as `arc-builder` / `arc-doc-writer` are installed for `pi-subagents`
+- 3+ independent tasks remain, or one high-risk evaluator needs a disposable worktree
+- No shared files between any builder/doc-writer tasks in the batch
+- No `blocks`/`blockedBy` dependencies between tasks in the batch
+- Each task's scope is clearly defined with no ambiguity
 
-Default to sequential execution for all tasks until worktree isolation is implemented.
+`pi-subagents` worktree mode returns per-task patch files and cleans up temporary worktrees. It does **not** automatically merge changes into the main working tree. The orchestrator must inspect, apply, verify, commit, and close each patch/task explicitly.
+
+**When NOT to use parallel**: missing `subagent` tool, missing Arc agent definitions, overlapping files, task dependencies, uncertainty about scope, or fewer than 3 implementation tasks. Default to sequential — the cost of serial execution is time; the cost of a bad parallel patch merge is data loss.
 
 ## Orchestration Loop
 
-Use sequential dispatch. Parallel worktree dispatch is reserved for a future package version.
+By default, use sequential dispatch. For independent batches with `pi-subagents` available, see [Parallel Patch Protocol](#parallel-patch-protocol) below.
 
-**Task tracking**: At the start of implementation, create a task list using `an explicit checklist` with one entry per arc issue to implement. This provides a visible progress tracker in the CLI. Update each task as you work:
+**Task tracking**: At the start of implementation, create a task list using the bundled `todo` checklist (via `todo` tool / `/todos`) with one entry per arc issue to implement. This provides a visible progress tracker in the CLI. Update each task as you work:
 - `in_progress` when dispatching the subagent
 - `completed` when the task is closed in arc
 
@@ -64,7 +104,7 @@ Use sequential dispatch. Parallel worktree dispatch is reserved for a future pac
 arc list --parent=<epic-id> --status=open --json
 ```
 
-Create a `an explicit checklist` entry for each, then work through this loop:
+Create a `todo` checklist entry for each, then work through this loop:
 
 ### 1. Find Next Task
 
@@ -96,11 +136,21 @@ arc show <task-id> --json | jq -e '.labels[] | select(. == "docs-only")' > /dev/
 
 **If `docs-only`** (exit code 0) — spawn an `doc-writer` subagent:
 
-Use the template at `./doc-writer-prompt.md`. Fill placeholder `{TASK_ID}`. For docs-only work, the agent default (`haiku`) is correct — omit `model:` unless the docs task is unusually complex.
+Use the template at `./doc-writer-prompt.md`. Fill placeholder `{TASK_ID}`. For docs-only work, the agent default (`small`) is correct — omit `model:` unless the docs task is unusually complex.
+
+Dispatch preference:
+- If `subagent` is available and `arc-doc-writer` is installed: `subagent({ agent: "arc-doc-writer", task: "<filled prompt>", context: "fresh" })`
+- If `subagent` is available but Arc specialists are missing: run `/arc-subagents-sync`, verify with `subagent({ action: "list" })`, then retry.
+- Otherwise: `arc_agent(agent="doc-writer", task="<filled prompt>")`
 
 **Otherwise** — spawn an `builder` subagent:
 
 Use the template at `./builder-prompt.md`. Fill placeholders (`{TASK_ID}`, `{PRE_TASK_SHA}`, `{DESIGN_EXCERPT}`) and apply Model Selection guidance (see `## Model Selection` above) for the dispatch `model:`.
+
+Dispatch preference:
+- If `subagent` is available and `arc-builder` is installed: `subagent({ agent: "arc-builder", task: "<filled prompt>", model: "<concrete-model-if-needed>", context: "fresh" })`
+- If `subagent` is available but Arc specialists are missing: run `/arc-subagents-sync`, verify with `subagent({ action: "list" })`, then retry.
+- Otherwise: `arc_agent(agent="builder", task="<filled prompt>", model="<tier-if-needed>")`
 
 ### 4. Evaluate Result
 
@@ -118,7 +168,7 @@ When the subagent reports back, check its **Status** (one of `DONE | DONE_WITH_C
 **On `BLOCKED` or `NEEDS_CONTEXT`:**
 - Do NOT proceed to review. Do NOT close the task.
 - For `NEEDS_CONTEXT`: gather the requested information, re-dispatch with it.
-- For `BLOCKED`: assess the blocker per the Handle Implementer Status table. Escalate one model tier (haiku → sonnet → opus) per the Model Selection escalation rule, or invoke the `debug` skill if the blocker is a persistent test failure, or split the task if too large, or escalate to the human.
+- For `BLOCKED`: assess the blocker per the Handle Implementer Status table. Escalate one model tier (`small` → `standard` → `large`) per the Model Selection escalation rule, or invoke the `debug` skill if the blocker is a persistent test failure, or split the task if too large, or escalate to the human.
 - After 3 re-dispatches on the same task without clean `DONE`, invoke the `debug` skill.
 
 **If the subagent did not include a Status field** (malformed report):
@@ -144,7 +194,14 @@ BASE_SHA=$PRE_TASK_SHA
 
 Dispatch `spec-reviewer`:
 
-Use the template at `./spec-reviewer-prompt.md`. Fill placeholders (`{TASK_ID}`, `{BASE_SHA}`, `{HEAD_SHA}`). Spec review is a focused comparison task — the agent default is appropriate; omit `model:` unless the spec is unusually large or ambiguous.
+Use the template at `./spec-reviewer-prompt.md`. Fill placeholders (`{TASK_ID}`, `{BASE_SHA}`, `{HEAD_SHA}`). Spec review is a focused comparison task — the Arc `standard` tier is appropriate unless the spec is unusually large or ambiguous.
+
+Dispatch preference:
+- If `subagent` is available and `arc-spec-reviewer` is installed: `subagent({ agent: "arc-spec-reviewer", task: "<filled prompt>", model: "openai-codex/gpt-5.3-codex", context: "fresh" })`
+- If `subagent` is available but Arc specialists are missing: run `/arc-subagents-sync`, verify with `subagent({ action: "list" })`, then retry.
+- Otherwise: `arc_agent(agent="spec-reviewer", task="<filled prompt>")`
+
+Do **not** substitute the generic `worker` or `reviewer` agent for spec compliance gates. Generic `pi-subagents` agents are not Arc specialists, and manually passing an Anthropic model bypasses Arc's Pi-native model tier policy. If Arc `pi-subagents` definitions are unavailable, use the bundled `arc_agent` fallback.
 
 Handle results:
 - `COMPLIANT` → proceed to Step 6
@@ -163,7 +220,7 @@ Only dispatched after spec compliance passes. Use the `review` skill or dispatch
 HEAD_SHA=$(git rev-parse HEAD)
 ```
 
-Use the template at `../arc-review/reviewer-prompt.md`. Fill placeholders (`{TASK_ID}`, `{BASE_SHA}` = PRE_TASK_SHA recorded earlier, `{HEAD_SHA}` = current HEAD, `{DESIGN_EXCERPT}` from parent epic or "none", `{EVALUATOR_STATUS}` = "active" if evaluator was dispatched, else "not dispatched"). Follow Model Selection above for the dispatch `model:` — sonnet default is appropriate for most reviews.
+Use the template at `../arc-review/reviewer-prompt.md`. Fill placeholders (`{TASK_ID}`, `{BASE_SHA}` = PRE_TASK_SHA recorded earlier, `{HEAD_SHA}` = current HEAD, `{DESIGN_EXCERPT}` from parent epic or "none", `{EVALUATOR_STATUS}` = "active" if evaluator was dispatched, else "not dispatched"). Follow Model Selection above for the dispatch `model:` — `standard` default is appropriate for most reviews.
 
 **On `{EVALUATOR_STATUS}`:** Decide whether to dispatch the evaluator (step 6.5) BEFORE filling this placeholder. If you plan to run step 6.5 in parallel with step 6, set `{EVALUATOR_STATUS}="active"`. Otherwise set `"not dispatched"`. Step 6.5 has the decision criteria for when to dispatch the evaluator.
 
@@ -186,15 +243,28 @@ The evaluator is **not dispatched by default**. Dispatch only when:
 - Task has a `high-risk` label
 - The orchestrator judges the task warrants independent verification (e.g., complex spec with multiple valid interpretations, security-sensitive code, tasks that modify shared contracts)
 
-When dispatched, run the `evaluator` agent sequentially after Step 6. Parallel evaluator execution is reserved for a future package version:
+When `pi-subagents` is available, dispatch the evaluator through a one-task worktree-isolated parallel run. This gives it a disposable repository copy so it can write acceptance tests and add temporary dependencies without dirtying the main worktree:
+
+```ts
+subagent({
+  tasks: [
+    { agent: "arc-evaluator", task: "<filled evaluator prompt>", model: "openai-codex/gpt-5.5" }
+  ],
+  worktree: true,
+  concurrency: 1,
+  context: "fresh"
+})
+```
+
+If `pi-subagents` or `arc-evaluator` is not available, fall back to sequential `arc_agent(agent="evaluator", model="large", task="<filled evaluator prompt>")` and ensure the evaluator does not leave uncommitted artifacts in the main worktree.
 
 ```bash
 PARENT=$(arc show <task-id> --json | jq -r '.parent_id // empty')
 ```
 
-Use the template at `./evaluator-prompt.md`. Fill placeholder `{TASK_ID}`. Because evaluation is adversarial verification on high-risk tasks, escalate one tier from the agent default (typically to `opus`) — set `model: "opus"` on the dispatch unless the task is narrow.
+Use the template at `./evaluator-prompt.md`. Fill placeholder `{TASK_ID}`. Because evaluation is adversarial verification on high-risk tasks, escalate one tier from the agent default (typically to `large`) — set `model: "large"` on `arc_agent` dispatches unless the task is narrow. For `pi-subagents`, pass the concrete configured large model.
 
-When you plan to run the evaluator after code review, set the code quality reviewer's `## Evaluator Status` to `active`; otherwise set it to `not dispatched`.
+When you plan to run the evaluator, set the code quality reviewer's `## Evaluator Status` to `active`; otherwise set it to `not dispatched`.
 
 Triage evaluator findings:
 
@@ -246,9 +316,9 @@ Every `builder` and `doc-writer` dispatch returns one of four terminal statuses.
 
 **Never close a task** whose last report was `BLOCKED`, `NEEDS_CONTEXT`, or `DONE_WITH_CONCERNS` unresolved. Re-dispatch until you have a clean `DONE` — then close.
 
-## Parallel Dispatch Protocol (Future)
+## Parallel Patch Protocol
 
-Parallel worktree dispatch is not implemented in this Pi package yet. Do not use this protocol until `arc_agent` supports `isolation: "worktree"`.
+Use this protocol only with `pi-subagents` worktree mode. Do **not** use `arc_agent(isolation="worktree")`; `arc_agent` intentionally remains sequential-only.
 
 ### P1. Commit Checkpoint
 
@@ -269,7 +339,7 @@ PARALLEL_BASE=$(git rev-parse HEAD)
 echo "Parallel base: $PARALLEL_BASE"
 ```
 
-This is the baseline all worktrees will branch from. Record it — you'll need it for verification after merge.
+This is the baseline all temporary worktrees will branch from. Record it — you'll need it for verification after patch application.
 
 ### P3. Verify Independence
 
@@ -283,25 +353,62 @@ Confirm:
 - No `blocks`/`blockedBy` relationships between tasks in this batch
 - No overlapping file paths in task descriptions
 - Each task has a clearly scoped, non-ambiguous specification
+- Each task can be validated independently after its patch is applied
 
 If any task fails these checks, remove it from the parallel batch and handle it sequentially after.
 
-### P4. Dispatch in Single Turn
+### P4. Dispatch with `pi-subagents`
 
-When this feature exists, all parallel arc_agent tool calls with `isolation: "worktree"` must happen in the same orchestrator message so they branch from the same HEAD.
+Dispatch all parallel tasks in one `subagent` tool call so they branch from the same `PARALLEL_BASE`:
 
-Until then, run tasks sequentially with `arc_agent(agent="builder", task="...")`.
+```ts
+subagent({
+  tasks: [
+    { agent: "arc-builder", task: "<filled builder prompt for task 1>", model: "openai-codex/gpt-5.3-codex" },
+    { agent: "arc-builder", task: "<filled builder prompt for task 2>", model: "openai-codex/gpt-5.3-codex" },
+    { agent: "arc-doc-writer", task: "<filled doc-writer prompt for task 3>", model: "openai-codex/gpt-5.4-mini" }
+  ],
+  worktree: true,
+  concurrency: 3,
+  context: "fresh"
+})
+```
 
-### P5. Merge-Back Verification
+`pi-subagents` returns diff stats and a `Full patches: <dir>` path. Temporary worktrees are cleaned up; the patches are the handoff artifact.
 
-After all parallel agents report back, verify the merge did not lose work:
+### P5. Apply and Verify Patches One at a Time
+
+For each returned patch:
 
 ```bash
-# 1. Check HEAD against the recorded anchor
-git log --oneline $PARALLEL_BASE..HEAD    # Should show ONLY the parallel agents' commits
+git status --short                    # Must be clean before applying each patch
+git apply --3way <patch-file>          # Apply one patch
+git diff --stat                       # Inspect applied changes
+```
 
-# 2. Verify sequential commits are still in history
-git log --oneline HEAD | head -20         # All prior sequential commits must be present
+Then run that task through the normal post-implementation gates:
+1. Fresh project/task tests — do not trust the subagent report alone.
+2. Spec compliance review.
+3. Code quality review.
+4. Optional high-risk evaluator.
+5. Commit the accepted patch.
+6. Close the corresponding arc issue.
+
+If a patch fails to apply cleanly or verification fails:
+- Do not close the task.
+- Revert the partial application (`git apply -R` if possible, or reset with user approval if needed).
+- Re-dispatch that task sequentially with the failure details.
+
+### P6. Batch-Level Verification
+
+After all accepted patches are applied and committed, verify the batch:
+
+```bash
+# 1. Check work since the recorded anchor
+git log --oneline $PARALLEL_BASE..HEAD
+
+# 2. Verify prior sequential commits are still in history
+git log --oneline HEAD | head -20
 
 # 3. Run full test suite
 make test    # or project-specific test command
@@ -310,12 +417,12 @@ make test    # or project-specific test command
 **If sequential commits are missing** → STOP. Do not continue. Recover from reflog:
 
 ```bash
-git reflog                                # Find the pre-merge state
-git log --oneline <reflog-ref>            # Verify it has the missing commits
+git reflog
+git log --oneline <reflog-ref>
 # Cherry-pick or reset as appropriate — ask user if unsure
 ```
 
-### P6. Resume Sequential
+### P7. Resume Sequential
 
 After successful verification, return to the normal orchestration loop (step 1) for any remaining tasks.
 
@@ -343,6 +450,8 @@ arc close <id> -r "reason"            # Close completed task
 - If in doubt about the result, re-dispatch rather than fixing manually
 - Never dispatch parallel agents without committing and pushing all sequential work first
 - Never dispatch parallel agents on tasks that share files
-- Never proceed after parallel merge without verifying commit history against the recorded HEAD anchor
+- Never use parallel patch mode unless `pi-subagents` and Arc `pi-subagents` agent definitions are available
+- Never apply more than one parallel patch at a time; apply, verify, review, commit, and close each task independently
+- Never proceed after a parallel patch batch without verifying commit history against the recorded HEAD anchor
 - Never mix sequential and parallel dispatch in the same batch — finish one mode before switching to the other
 - Format all arc content (descriptions, plans, comments) per `skills/arc/_formatting.md`

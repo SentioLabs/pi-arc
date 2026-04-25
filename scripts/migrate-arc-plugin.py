@@ -32,7 +32,11 @@ for f in sorted((SRC / "commands").glob("*.md")):
     text = text.replace("Claude Code", "Pi")
     text = text.replace("Claude", "Pi")
     text = text.replace("SessionStart and PreCompact hooks", "the Pi arc extension on session start and before compaction")
-    text = text.replace("When to use arc vs TodoWrite", "When to use arc vs ephemeral in-session checklists")
+    text = re.sub(r"When to use arc vs TodoWrite", "When to use arc vs the bundled `todo` checklist workflow", text, flags=re.IGNORECASE)
+    text = re.sub(r"todowrite vs arc", "todo checklist vs arc", text, flags=re.IGNORECASE)
+    text = re.sub(r"TodoWrite", "the bundled `todo` checklist", text, flags=re.IGNORECASE)
+    text = re.sub(r"TaskCreate/TaskUpdate", "the bundled `todo` checklist", text, flags=re.IGNORECASE)
+    text = re.sub(r"TaskCreate", "the bundled `todo` checklist", text, flags=re.IGNORECASE)
     (ARC_ROOT / "prompts" / dest_name).write_text(text)
 
 skill_map = {
@@ -43,7 +47,6 @@ skill_map = {
     "finish": "arc-finish",
     "plan": "arc-plan",
     "review": "arc-review",
-    "team-dispatch": "arc-team-dispatch",
     "verify": "arc-verify",
 }
 
@@ -57,11 +60,14 @@ def transform_text(text: str) -> str:
     # Harness naming and Claude-specific tool names.
     text = text.replace("Claude Code", "Pi")
     text = text.replace("Claude", "Pi")
-    text = text.replace("TaskCreate/TaskUpdate", "an explicit checklist in the conversation")
-    text = text.replace("TaskCreate", "an explicit checklist")
-    text = text.replace("TodoWrite", "an explicit checklist")
-    text = text.replace("AskUserQuestion tool", "user prompt with numbered options")
-    text = text.replace("AskUserQuestion", "user prompt with numbered options")
+    text = re.sub(r"TaskCreate/TaskUpdate tracks workflow progress in the CLI", "the bundled `todo` checklist tracks in-session workflow progress in the CLI", text, flags=re.IGNORECASE)
+    text = re.sub(r"Create a TodoWrite checklist", "Create a checklist using the bundled `todo` tool (or `/todos`)", text, flags=re.IGNORECASE)
+    text = re.sub(r"`TaskCreate`", "the bundled `todo` checklist (via `todo` tool / `/todos`)", text, flags=re.IGNORECASE)
+    text = re.sub(r"TaskCreate/TaskUpdate", "the bundled `todo` checklist", text, flags=re.IGNORECASE)
+    text = re.sub(r"TaskCreate", "the bundled `todo` checklist", text, flags=re.IGNORECASE)
+    text = re.sub(r"TodoWrite", "the bundled `todo` checklist", text, flags=re.IGNORECASE)
+    text = text.replace("AskUserQuestion tool", "`ask_user_question` tool")
+    text = text.replace("AskUserQuestion", "`ask_user_question`")
 
     # Subagent migration.
     text = text.replace("Use the Agent tool with subagent_type=\"arc:issue-manager\":", "Use the arc_agent tool with agent=\"issue-manager\":")
@@ -84,6 +90,11 @@ for src_dir in sorted((SRC / "skills").iterdir()):
     if not src_dir.is_dir():
         continue
     old_name = src_dir.name
+    # Claude's team-dispatch skill depends on Claude-only persistent team
+    # primitives (TeamCreate/TaskCreate/TaskUpdate/Agent team_name). Pi does
+    # not provide equivalent semantics, so do not package a misleading skill.
+    if old_name == "team-dispatch":
+        continue
     new_name = skill_map.get(old_name, f"arc-{old_name}")
     dest_dir = ARC_ROOT / "skills" / new_name
     shutil.copytree(src_dir, dest_dir)
@@ -98,100 +109,225 @@ for src_dir in sorted((SRC / "skills").iterdir()):
             continue
         md.write_text(transform_text(md.read_text()))
 
-# Current Pi package limitation: replace Claude team automation with safe Pi guidance.
-(ARC_ROOT / "skills" / "arc-team-dispatch" / "SKILL.md").write_text("""---
-name: arc-team-dispatch
-description: Inspect arc team labels and prepare a role-based execution plan. Use when the user asks to deploy a team, spawn teammates, parallelize an epic, or distribute arc tasks by teammate labels. Current Pi package limitation: actual parallel team spawning is not implemented; this skill prepares a sequential/role-grouped dispatch plan instead.
----
+# Patch generated skills for Pi-specific execution semantics.
+def patch_file(rel: str, replacements: list[tuple[str, str]]) -> None:
+    path = ARC_ROOT / rel
+    text = path.read_text()
+    for old, new in replacements:
+        if old not in text:
+            raise RuntimeError(f"Expected text not found while patching {rel}: {old[:80]!r}")
+        text = text.replace(old, new)
+    path.write_text(text)
 
-# Arc Team Dispatch
+patch_file("prompts/arc-team.md", [
+    (
+        "description: Agent team operations",
+        "description: Show arc teammate-label context",
+    ),
+    (
+        "Manage agent team operations with `arc team`.",
+        "Show teammate-label planning context with `arc team`.\n\nPi does not support Claude-style team deployment. Use this command only to inspect `teammate:*` issue groupings; implementation remains orchestrated through `/arc-build`.",
+    ),
+    (
+        "**Related commands:**\n- `arc prime --role=lead` — Team lead context output\n- `arc prime --role=frontend` — Teammate-specific context (or use `ARC_TEAMMATE_ROLE` env var)",
+        "**Related commands:**\n- `arc prime --role=lead` — Lead-oriented context output\n- `arc prime --role=frontend` — Role-filtered context (or use `ARC_TEAMMATE_ROLE` env var)",
+    ),
+])
 
-Arc can group epic child issues by `teammate:<role>` labels. The Claude plugin used Claude team/subagent primitives for parallel execution. This Pi package does **not** yet implement full team spawning or worktree-isolated parallel agents, so this skill converts the team graph into a safe role-grouped execution plan and then proceeds sequentially unless the user explicitly wants to handle parallelism outside Pi.
+patch_file("skills/arc/SKILL.md", [
+    (
+        "After `plan`, choose:\n- **Single-agent + subagents**: Invoke `implement`. Main agent orchestrates, subagents do TDD. Best for sequential tasks.\n- **Agentic team**: Add `teammate:*` labels, invoke `arc team-deploy`. Best for parallel multi-role work.",
+        "After `plan`, choose:\n- **Single-agent + subagents**: Invoke `implement`. Main agent orchestrates, subagents do TDD. Best for sequential tasks.\n- **Parallel Arc build**: For independent task batches, `implement` can use worktree-isolated `pi-subagents` runs when that companion package and Arc agent definitions are available. This is not Claude-style team deployment; the orchestrator still owns verification, patch application, issue closure, and handoff.",
+    ),
+])
 
-## When to Invoke
+patch_file("skills/arc-plan/SKILL.md", [
+    (
+        "- Team preparation (teammate labels) is optional — only if user chooses team execution",
+        "- `teammate:*` labels may be used as planning metadata, but Pi does not support Claude-style team deployment. Use `/arc-build` for orchestrated sequential work or independent `pi-subagents` parallel batches when available.",
+    ),
+])
 
-- User says "deploy team", "create agent team from arc", "spawn teammates from arc"
-- User wants to parallelize work on an arc epic across multiple roles
-- User asks what teammate labels exist or how an epic should be distributed
+patch_file("skills/arc-review/SKILL.md", [
+    (
+        "## Contexts\n\nThis skill works in both execution models:\n\n| Context | How review works |\n|---------|-----------------|\n| **Single-agent** | Main agent dispatches `code-reviewer` subagent |\n| **Team mode** | Team lead dispatches QA teammate or `code-reviewer` subagent |",
+        "## Contexts\n\nThis skill works in orchestrated Arc execution:\n\n| Context | How review works |\n|---------|-----------------|\n| **Sequential build** | Main agent dispatches `code-reviewer` subagent after the builder reports completion |\n| **Parallel patch batch** | Main agent applies each accepted patch to the main worktree, then dispatches `code-reviewer` against the applied diff |",
+    ),
+])
 
-## Workflow
+patch_file("skills/arc-finish/SKILL.md", [
+    (
+        "| Session Type | Behavior |\n|-------------|----------|\n| **Single-agent** | Full protocol above |\n| **Team lead** | Verify teammate work → close arc issues → team cleanup → commit → push |\n| **Teammate** | Commit → push (team lead handles arc close and coordination) |",
+        "| Session Type | Behavior |\n|-------------|----------|\n| **Single-agent** | Full protocol above |\n| **Parallel subagent patches** | Apply/review accepted patches → verify → close arc issues → commit → push |",
+    ),
+])
 
-### 1. Gather Team Context
+patch_file("skills/arc-build/SKILL.md", [
+    (
+        "Every arc_agent dispatch can override the subagent's frontmatter model via the `model:` parameter. Use this to match model tier to task complexity. The default floor per agent is set in frontmatter — use these overrides to downgrade for trivial tasks or escalate for complex ones.",
+        "Every Arc subagent dispatch can override the subagent's frontmatter model via the `model:` parameter. Use this to match model tier to task complexity. The default floor per agent is set in frontmatter — use these overrides to downgrade for trivial tasks or escalate for complex ones.\n\nPrefer the `subagent` tool from `pi-subagents` when it is available **and** Arc agent definitions such as `arc-builder` are installed. If Arc specialist definitions are missing, run `/arc-subagents-sync` (project default) or `/arc-subagents-sync user`, then re-check with `subagent({ action: \"list\" })`. Otherwise use the bundled `arc_agent` fallback. `arc_agent` is self-contained and sequential only; `pi-subagents` adds chains, async runs, and worktree-isolated parallel patch generation.",
+    ),
+    (
+        "```text\narc_agent(agent=\"builder\", model=\"haiku\", task=\"...\")       # mechanical\narc_agent(agent=\"builder\", task=\"...\")                      # standard (sonnet)\narc_agent(agent=\"builder\", model=\"opus\", task=\"...\")        # complex\n```",
+        "```text\n# Self-contained fallback:\narc_agent(agent=\"builder\", model=\"haiku\", task=\"...\")       # mechanical\narc_agent(agent=\"builder\", task=\"...\")                      # standard (sonnet)\narc_agent(agent=\"builder\", model=\"opus\", task=\"...\")        # complex\n\n# Preferred when pi-subagents Arc agents are installed:\nsubagent({ agent: \"arc-builder\", task: \"...\", model: \"haiku\", context: \"fresh\" })\nsubagent({ agent: \"arc-builder\", task: \"...\", context: \"fresh\" })\nsubagent({ agent: \"arc-builder\", task: \"...\", model: \"opus\", context: \"fresh\" })\n```",
+    ),
+    (
+        "### Parallel\n\nMultiple tasks dispatched simultaneously using `isolation: \"worktree\"`. Use this **only** when ALL of these are true:\n- 3+ independent tasks remain\n- No shared files between any tasks in the batch\n- No `blocks`/`blockedBy` dependencies between tasks in the batch\n- Each task's scope is clearly defined with no ambiguity\n\n**When NOT to use parallel**: overlapping files, task dependencies, uncertainty about scope, fewer than 3 tasks. Default to sequential — the cost of serial execution is time; the cost of a bad parallel merge is data loss.",
+        "### Parallel\n\nParallel worktree dispatch is available **only** through the optional `pi-subagents` companion package, not through `arc_agent`. Use it only when ALL of these are true:\n- `pi-subagents` is installed and the `subagent` tool is available\n- Arc agent definitions such as `arc-builder` / `arc-doc-writer` are installed for `pi-subagents`\n- 3+ independent tasks remain, or one high-risk evaluator needs a disposable worktree\n- No shared files between any builder/doc-writer tasks in the batch\n- No `blocks`/`blockedBy` dependencies between tasks in the batch\n- Each task's scope is clearly defined with no ambiguity\n\n`pi-subagents` worktree mode returns per-task patch files and cleans up temporary worktrees. It does **not** automatically merge changes into the main working tree. The orchestrator must inspect, apply, verify, commit, and close each patch/task explicitly.\n\n**When NOT to use parallel**: missing `subagent` tool, missing Arc agent definitions, overlapping files, task dependencies, uncertainty about scope, or fewer than 3 implementation tasks. Default to sequential — the cost of serial execution is time; the cost of a bad parallel patch merge is data loss.",
+    ),
+    (
+        "By default, use sequential dispatch. For independent tasks, see [Parallel Dispatch Protocol](#parallel-dispatch-protocol) below.",
+        "By default, use sequential dispatch. For independent batches with `pi-subagents` available, see [Parallel Patch Protocol](#parallel-patch-protocol) below.",
+    ),
+    (
+        "Use the template at `./doc-writer-prompt.md`. Fill placeholder `{TASK_ID}`. For docs-only work, the agent default (`haiku`) is correct — omit `model:` unless the docs task is unusually complex.\n\n**Otherwise** — spawn an `builder` subagent:\n\nUse the template at `./builder-prompt.md`. Fill placeholders (`{TASK_ID}`, `{PRE_TASK_SHA}`, `{DESIGN_EXCERPT}`) and apply Model Selection guidance (see `## Model Selection` above) for the dispatch `model:`.",
+        "Use the template at `./doc-writer-prompt.md`. Fill placeholder `{TASK_ID}`. For docs-only work, the agent default (`haiku`) is correct — omit `model:` unless the docs task is unusually complex.\n\nDispatch preference:\n- If `subagent` is available and `arc-doc-writer` is installed: `subagent({ agent: \"arc-doc-writer\", task: \"<filled prompt>\", context: \"fresh\" })`\n- If `subagent` is available but Arc specialists are missing: run `/arc-subagents-sync`, verify with `subagent({ action: \"list\" })`, then retry.\n- Otherwise: `arc_agent(agent=\"doc-writer\", task=\"<filled prompt>\")`\n\n**Otherwise** — spawn an `builder` subagent:\n\nUse the template at `./builder-prompt.md`. Fill placeholders (`{TASK_ID}`, `{PRE_TASK_SHA}`, `{DESIGN_EXCERPT}`) and apply Model Selection guidance (see `## Model Selection` above) for the dispatch `model:`.\n\nDispatch preference:\n- If `subagent` is available and `arc-builder` is installed: `subagent({ agent: \"arc-builder\", task: \"<filled prompt>\", model: \"<tier-if-needed>\", context: \"fresh\" })`\n- If `subagent` is available but Arc specialists are missing: run `/arc-subagents-sync`, verify with `subagent({ action: \"list\" })`, then retry.\n- Otherwise: `arc_agent(agent=\"builder\", task=\"<filled prompt>\", model=\"<tier-if-needed>\")`",
+    ),
+    (
+        "Use the template at `./spec-reviewer-prompt.md`. Fill placeholders (`{TASK_ID}`, `{BASE_SHA}`, `{HEAD_SHA}`). Spec review is a focused comparison task — the agent default is appropriate; omit `model:` unless the spec is unusually large or ambiguous.",
+        "Use the template at `./spec-reviewer-prompt.md`. Fill placeholders (`{TASK_ID}`, `{BASE_SHA}`, `{HEAD_SHA}`). Spec review is a focused comparison task — the Arc `standard` tier is appropriate unless the spec is unusually large or ambiguous.\n\nDispatch preference:\n- If `subagent` is available and `arc-spec-reviewer` is installed: `subagent({ agent: \"arc-spec-reviewer\", task: \"<filled prompt>\", model: \"openai-codex/gpt-5.3-codex\", context: \"fresh\" })`\n- If `subagent` is available but Arc specialists are missing: run `/arc-subagents-sync`, verify with `subagent({ action: \"list\" })`, then retry.\n- Otherwise: `arc_agent(agent=\"spec-reviewer\", task=\"<filled prompt>\")`\n\nDo **not** substitute the generic `worker` or `reviewer` agent for spec compliance gates. Generic `pi-subagents` agents are not Arc specialists, and manually passing an Anthropic model bypasses Arc's Pi-native model tier policy. If Arc `pi-subagents` definitions are unavailable, use the bundled `arc_agent` fallback.",
+    ),
+    (
+        "When dispatched, use `isolation: \"worktree\"` and the existing `evaluator` agent. The evaluator can run **in parallel with Step 6** (code quality review) since they examine orthogonal concerns:",
+        "When `pi-subagents` is available, dispatch the evaluator through a one-task worktree-isolated parallel run. This gives it a disposable repository copy so it can write acceptance tests and add temporary dependencies without dirtying the main worktree:\n\n```ts\nsubagent({\n  tasks: [\n    { agent: \"arc-evaluator\", task: \"<filled evaluator prompt>\", model: \"opus\" }\n  ],\n  worktree: true,\n  concurrency: 1,\n  context: \"fresh\"\n})\n```\n\nIf `pi-subagents` or `arc-evaluator` is not available, fall back to sequential `arc_agent(agent=\"evaluator\", model=\"opus\", task=\"<filled evaluator prompt>\")` and ensure the evaluator does not leave uncommitted artifacts in the main worktree.",
+    ),
+    (
+        "When dispatching alongside the evaluator, update the code quality reviewer's `## Evaluator Status` to `active`.",
+        "When you plan to run the evaluator, set the code quality reviewer's `## Evaluator Status` to `active`; otherwise set it to `not dispatched`.",
+    ),
+    (
+        "## Parallel Dispatch Protocol\n\nWhen you have identified a batch of truly independent tasks (see [Dispatch Modes](#dispatch-modes)), switch from the sequential loop to this protocol:",
+        "## Parallel Patch Protocol\n\nUse this protocol only with `pi-subagents` worktree mode. Do **not** use `arc_agent(isolation=\"worktree\")`; `arc_agent` intentionally remains sequential-only.",
+    ),
+    (
+        "All parallel arc_agent tool calls with `isolation: \"worktree\"` **must happen in the same orchestrator message**. This ensures they all branch from the same HEAD.\n\n```\n# In a single response, dispatch all parallel tasks:\narc_agent(agent=\"builder\", isolation=\"worktree\", task=\"Task 1...\")\narc_agent(agent=\"builder\", isolation=\"worktree\", task=\"Task 2...\")\narc_agent(agent=\"builder\", isolation=\"worktree\", task=\"Task 3...\")\n```\n\n**Never** dispatch worktree agents across multiple turns — HEAD may move between turns, causing stale branches.",
+        "Dispatch all parallel tasks in one `subagent` tool call so they branch from the same `PARALLEL_BASE`:\n\n```ts\nsubagent({\n  tasks: [\n    { agent: \"arc-builder\", task: \"<filled builder prompt for task 1>\", model: \"sonnet\" },\n    { agent: \"arc-builder\", task: \"<filled builder prompt for task 2>\", model: \"sonnet\" },\n    { agent: \"arc-doc-writer\", task: \"<filled doc-writer prompt for task 3>\", model: \"haiku\" }\n  ],\n  worktree: true,\n  concurrency: 3,\n  context: \"fresh\"\n})\n```\n\n`pi-subagents` returns diff stats and a `Full patches: <dir>` path. Temporary worktrees are cleaned up; the patches are the handoff artifact.",
+    ),
+    (
+        "- Never proceed after parallel merge without verifying commit history against the recorded HEAD anchor",
+        "- Never use parallel patch mode unless `pi-subagents` and Arc `pi-subagents` agent definitions are available\n- Never apply more than one parallel patch at a time; apply, verify, review, commit, and close each task independently\n- Never proceed after a parallel patch batch without verifying commit history against the recorded HEAD anchor",
+    ),
+])
 
-Run:
+
+# The replacement above adjusts the dispatch example, but the original Claude
+# protocol still describes automatic worktree merge semantics. Pi-subagents
+# returns patch files instead, so replace the whole protocol body.
+build_path = ARC_ROOT / "skills" / "arc-build" / "SKILL.md"
+text = build_path.read_text()
+start = text.index("## Parallel Patch Protocol")
+end = text.index("\n## When to Invoke Debug", start)
+text = text[:start] + """## Parallel Patch Protocol
+
+Use this protocol only with `pi-subagents` worktree mode. Do **not** use `arc_agent(isolation=\"worktree\")`; `arc_agent` intentionally remains sequential-only.
+
+### P1. Commit Checkpoint
+
+Before switching to parallel, ensure all sequential work is committed and pushed:
 
 ```bash
-arc team context <epic-id> --json
+git status          # Must be clean — no unstaged or uncommitted changes
+git log -3          # Verify recent sequential commits are present
+git push            # Establish a recovery point on the remote
 ```
 
-If the user has not specified an epic, help them find one:
+**Hard gate**: Do NOT proceed if `git status` shows uncommitted changes.
+
+### P2. Record HEAD Anchor
 
 ```bash
-arc list --type=epic --status=open
+PARALLEL_BASE=$(git rev-parse HEAD)
+echo \"Parallel base: $PARALLEL_BASE\"
 ```
 
-### 2. Present Team Composition
+This is the baseline all temporary worktrees will branch from. Record it — you'll need it for verification after patch application.
 
-Summarize roles and issues and explain that automatic parallel team spawning is not implemented yet.
+### P3. Verify Independence
 
-Ask the user which path they want:
+For each task in the planned parallel batch:
 
-1. Run sequentially by role in this session
-2. Print prompts for separate Pi sessions/worktrees
-3. Stop after showing the team plan
+```bash
+arc show <task-id>
+```
 
-### 3. Sequential Role Execution
+Confirm:
+- No `blocks`/`blockedBy` relationships between tasks in this batch
+- No overlapping file paths in task descriptions
+- Each task has a clearly scoped, non-ambiguous specification
+- Each task can be validated independently after its patch is applied
 
-For sequential execution:
+If any task fails these checks, remove it from the parallel batch and handle it sequentially after.
 
-1. Order roles by dependency readiness and priority.
-2. For each role, list ready issues first.
-3. For each issue:
-   - `arc show <issue-id>`
-   - `arc update <issue-id> --take`
-   - Dispatch `arc_agent(agent="builder", task="...")` or `arc_agent(agent="doc-writer", task="...")` for `docs-only` issues.
-   - Verify the result.
-   - Close the issue only after verification passes.
+### P4. Dispatch with `pi-subagents`
 
-Use `/skill:arc-build <epic-id>` for the detailed build loop when appropriate.
+Dispatch all parallel tasks in one `subagent` tool call so they branch from the same `PARALLEL_BASE`:
 
-## Rules
+```ts
+subagent({
+  tasks: [
+    { agent: \"arc-builder\", task: \"<filled builder prompt for task 1>\", model: \"sonnet\" },
+    { agent: \"arc-builder\", task: \"<filled builder prompt for task 2>\", model: \"sonnet\" },
+    { agent: \"arc-doc-writer\", task: \"<filled doc-writer prompt for task 3>\", model: \"haiku\" }
+  ],
+  worktree: true,
+  concurrency: 3,
+  context: \"fresh\"
+})
+```
 
-- Do not claim that Pi has spawned a real agent team unless a future extension actually implements it.
-- Do not use `isolation: "worktree"` with `arc_agent` in the current package; it is not implemented.
-- Prefer sequential execution when unsure.
-- Preserve arc dependencies: never start a blocked issue until its blockers are closed.
-- Close arc issues only after evidence-based verification.
-""")
+`pi-subagents` returns diff stats and a `Full patches: <dir>` path. Temporary worktrees are cleaned up; the patches are the handoff artifact.
 
-# Patch arc-build to reflect current sequential-only arc_agent behavior.
-build_skill = ARC_ROOT / "skills" / "arc-build" / "SKILL.md"
-text = build_skill.read_text()
-text = text.replace(
-    "### Parallel\n\nMultiple tasks dispatched simultaneously using `isolation: \"worktree\"`. Use this **only** when ALL of these are true:\n- 3+ independent tasks remain\n- No shared files between any tasks in the batch\n- No `blocks`/`blockedBy` dependencies between tasks in the batch\n- Each task's scope is clearly defined with no ambiguity\n\n**When NOT to use parallel**: overlapping files, task dependencies, uncertainty about scope, fewer than 3 tasks. Default to sequential — the cost of serial execution is time; the cost of a bad parallel merge is data loss.",
-    "### Parallel\n\nParallel worktree dispatch is **not available in the current Pi package**. The `arc_agent` tool currently supports sequential subprocess execution only and will reject `isolation: \"worktree\"`.\n\nDefault to sequential execution for all tasks until worktree isolation is implemented.",
-)
-text = text.replace(
-    "By default, use sequential dispatch. For independent tasks, see [Parallel Dispatch Protocol](#parallel-dispatch-protocol) below.",
-    "Use sequential dispatch. Parallel worktree dispatch is reserved for a future package version.",
-)
-text = text.replace(
-    "When dispatched, use `isolation: \"worktree\"` and the existing `evaluator` agent. The evaluator can run **in parallel with Step 6** (code quality review) since they examine orthogonal concerns:",
-    "When dispatched, run the `evaluator` agent sequentially after Step 6. Parallel evaluator execution is reserved for a future package version:",
-)
-text = text.replace(
-    "When dispatching alongside the evaluator, update the code quality reviewer's `## Evaluator Status` to `active`.",
-    "When you plan to run the evaluator after code review, set the code quality reviewer's `## Evaluator Status` to `active`; otherwise set it to `not dispatched`.",
-)
-text = text.replace(
-    "## Parallel Dispatch Protocol\n\nWhen you have identified a batch of truly independent tasks (see [Dispatch Modes](#dispatch-modes)), switch from the sequential loop to this protocol:",
-    "## Parallel Dispatch Protocol (Future)\n\nParallel worktree dispatch is not implemented in this Pi package yet. Do not use this protocol until `arc_agent` supports `isolation: \"worktree\"`.",
-)
-text = text.replace(
-    "All parallel arc_agent tool calls with `isolation: \"worktree\"` **must happen in the same orchestrator message**. This ensures they all branch from the same HEAD.\n\n```\n# In a single response, dispatch all parallel tasks:\narc_agent(agent=\"builder\", isolation=\"worktree\", task=\"Task 1...\")\narc_agent(agent=\"builder\", isolation=\"worktree\", task=\"Task 2...\")\narc_agent(agent=\"builder\", isolation=\"worktree\", task=\"Task 3...\")\n```\n\n**Never** dispatch worktree agents across multiple turns — HEAD may move between turns, causing stale branches.",
-    "When this feature exists, all parallel arc_agent tool calls with `isolation: \"worktree\"` must happen in the same orchestrator message so they branch from the same HEAD.\n\nUntil then, run tasks sequentially with `arc_agent(agent=\"builder\", task=\"...\")`.",
-)
-build_skill.write_text(text)
+### P5. Apply and Verify Patches One at a Time
+
+For each returned patch:
+
+```bash
+git status --short                    # Must be clean before applying each patch
+git apply --3way <patch-file>          # Apply one patch
+git diff --stat                       # Inspect applied changes
+```
+
+Then run that task through the normal post-implementation gates:
+1. Fresh project/task tests — do not trust the subagent report alone.
+2. Spec compliance review.
+3. Code quality review.
+4. Optional high-risk evaluator.
+5. Commit the accepted patch.
+6. Close the corresponding arc issue.
+
+If a patch fails to apply cleanly or verification fails:
+- Do not close the task.
+- Revert the partial application (`git apply -R` if possible, or reset with user approval if needed).
+- Re-dispatch that task sequentially with the failure details.
+
+### P6. Batch-Level Verification
+
+After all accepted patches are applied and committed, verify the batch:
+
+```bash
+# 1. Check work since the recorded anchor
+git log --oneline $PARALLEL_BASE..HEAD
+
+# 2. Verify prior sequential commits are still in history
+git log --oneline HEAD | head -20
+
+# 3. Run full test suite
+make test    # or project-specific test command
+```
+
+**If sequential commits are missing** → STOP. Do not continue. Recover from reflog:
+
+```bash
+git reflog
+git log --oneline <reflog-ref>
+# Cherry-pick or reset as appropriate — ask user if unsure
+```
+
+### P7. Resume Sequential
+
+After successful verification, return to the normal orchestration loop (step 1) for any remaining tasks.\n""" + text[end:]
+build_path.write_text(text)
+
 
 # Copy agents as bundled prompts for arc_agent.
 for f in sorted((SRC / "agents").glob("*.md")):

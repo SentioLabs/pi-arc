@@ -19,9 +19,16 @@
     "url": "https://github.com/sentiolabs/pi-arc"
   },
   "homepage": "https://github.com/sentiolabs/pi-arc",
+  "dependencies": {
+    "@juicesharp/rpiv-todo": "^0.12.5"
+  },
+  "bundledDependencies": [
+    "@juicesharp/rpiv-todo"
+  ],
   "peerDependencies": {
     "@mariozechner/pi-ai": "*",
     "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*",
     "typebox": "*"
   },
   "pi": {
@@ -32,7 +39,8 @@
       "./prompts/*.md"
     ],
     "extensions": [
-      "./extensions/*.ts"
+      "./extensions/*.ts",
+      "./node_modules/@juicesharp/rpiv-todo/index.ts"
     ]
   }
 }

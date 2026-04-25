@@ -15,7 +15,7 @@ Uncommitted code doesn't exist. Unpushed commits are local fiction. The remote i
 
 ## Protocol
 
-Create a an explicit checklist checklist with all steps and work through them:
+Create a checklist using the bundled `todo` tool (or `/todos`) with all steps and work through them:
 
 ### Phase 1: Capture Remaining Work
 
@@ -132,8 +132,7 @@ Create a an explicit checklist checklist with all steps and work through them:
 | Session Type | Behavior |
 |-------------|----------|
 | **Single-agent** | Full protocol above |
-| **Team lead** | Verify teammate work → close arc issues → team cleanup → commit → push |
-| **Teammate** | Commit → push (team lead handles arc close and coordination) |
+| **Parallel subagent patches** | Apply/review accepted patches → verify → close arc issues → commit → push |
 
 ## What's NOT in This Protocol
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+* **pi:** resolve Arc subagent model tiers (`small`, `standard`, `large`) to configurable concrete Pi models.
+
 ## [0.8.0](https://github.com/SentioLabs/agent-nexus/compare/claude-arc-v0.7.0...claude-arc-v0.8.0) (2026-04-24)
 
 

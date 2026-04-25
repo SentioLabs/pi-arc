@@ -1,9 +1,11 @@
 ---
-description: Agent team operations
+description: Show arc teammate-label context
 argument-hint: context [epic-id] [--json]
 ---
 
-Manage agent team operations with `arc team`.
+Show teammate-label planning context with `arc team`.
+
+Pi does not support Claude-style team deployment. Use this command only to inspect `teammate:*` issue groupings; implementation remains orchestrated through `/arc-build`.
 
 **Team context:**
 ```bash
@@ -24,5 +26,5 @@ arc team context <epic-id> --json   # JSON for a specific epic
 **JSON output** includes full issue details with plans and dependencies for each role group.
 
 **Related commands:**
-- `arc prime --role=lead` — Team lead context output
-- `arc prime --role=frontend` — Teammate-specific context (or use `ARC_TEAMMATE_ROLE` env var)
+- `arc prime --role=lead` — Lead-oriented context output
+- `arc prime --role=frontend` — Role-filtered context (or use `ARC_TEAMMATE_ROLE` env var)

@@ -28,7 +28,7 @@ The search results show `[topic]` in brackets - use that topic name with `arc do
 
 ```bash
 arc docs search "blocks vs related"     # dependency types
-arc docs search "todowrite vs arc"      # boundaries
+arc docs search "todo checklist vs arc" # boundaries
 arc docs search "compaction notes"      # resumability
 arc docs search "session start"         # workflows
 ```
@@ -47,6 +47,6 @@ Fuzzy matching handles typos - "dependncy" finds "dependency" docs.
 | `arc docs` | Overview of all topics |
 | `arc docs workflows` | Step-by-step checklists |
 | `arc docs dependencies` | Dependency types and when to use each |
-| `arc docs boundaries` | When to use arc vs ephemeral in-session checklists |
+| `arc docs boundaries` | When to use arc vs the bundled `todo` checklist workflow |
 | `arc docs resumability` | Writing notes that survive compaction |
 | `arc docs plugin` | Pi plugin installation |

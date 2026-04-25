@@ -1,6 +1,6 @@
 ---
 name: arc
-description: General arc CLI reference and workflow context. Use when the user asks about arc commands, issue tracking workflows, when to use arc vs an explicit checklist, or needs help with arc configuration.
+description: General arc CLI reference and workflow context. Use when the user asks about arc commands, issue tracking workflows, when to use arc vs the bundled `todo` checklist workflow, or needs help with arc configuration.
 ---
 
 # Arc Issue Tracker
@@ -27,9 +27,9 @@ The plugin is the single source of truth for Pi integration. It provides:
 - **Skills and resources** - detailed guides and reference
 - **Agents** - for bulk operations
 
-## When to Use Arc vs an explicit checklist
+## When to Use Arc vs the bundled `todo` checklist
 
-| Use Arc | Use an explicit checklist |
+| Use Arc | Use `todo` checklist workflow |
 |---------|---------------|
 | Multi-session work | Single-session tasks |
 | Complex dependencies | Linear task lists |
@@ -66,7 +66,7 @@ brainstorm → plan → implement (per task) → review → finish
 
 After `plan`, choose:
 - **Single-agent + subagents**: Invoke `implement`. Main agent orchestrates, subagents do TDD. Best for sequential tasks.
-- **Agentic team**: Add `teammate:*` labels, invoke `arc team-deploy`. Best for parallel multi-role work.
+- **Parallel Arc build**: For independent task batches, `implement` can use worktree-isolated `pi-subagents` runs when that companion package and Arc agent definitions are available. This is not Claude-style team deployment; the orchestrator still owns verification, patch application, issue closure, and handoff.
 
 ## Quick Start
 
@@ -113,7 +113,7 @@ Fuzzy matching handles typos - "dependncy" finds "dependency" docs.
 
 | Command | Purpose |
 |---------|---------|
-| `arc docs boundaries` | When to use arc vs an explicit checklist - decision matrix, integration patterns, common mistakes |
+| `arc docs boundaries` | When to use arc vs the bundled `todo` checklist workflow - decision matrix, integration patterns, common mistakes |
 | `arc docs workflows` | Step-by-step checklists for session start, epic planning, side quests, handoff |
 | `arc docs dependencies` | Dependency types (blocks, related, parent-child, discovered-from) and when to use each |
 | `arc docs resumability` | Writing notes that survive compaction - templates and anti-patterns |
