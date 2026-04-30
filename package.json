@@ -1,6 +1,6 @@
 {
   "name": "@sentiolabs/pi-arc",
-  "version": "0.8.0",
+  "version": "0.1.0",
   "description": "Arc issue tracker integration for Pi.",
   "keywords": [
     "pi-package",
@@ -16,9 +16,33 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/sentiolabs/pi-arc"
+    "url": "git+https://github.com/sentiolabs/pi-arc.git"
   },
-  "homepage": "https://github.com/sentiolabs/pi-arc",
+  "homepage": "https://github.com/sentiolabs/pi-arc#readme",
+  "bugs": {
+    "url": "https://github.com/sentiolabs/pi-arc/issues"
+  },
+  "packageManager": "npm@11.12.1",
+  "engines": {
+    "node": ">=20.6.0"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "pack:dry-run": "npm pack --dry-run",
+    "prepublishOnly": "npm test && npm run pack:dry-run"
+  },
+  "files": [
+    "agents/",
+    "extensions/",
+    "prompts/",
+    "skills/",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "dependencies": {
     "@juicesharp/rpiv-todo": "^0.12.5"
   },

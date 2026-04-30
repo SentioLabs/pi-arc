@@ -68,31 +68,51 @@ arc onboard
 
 The package fails gracefully when `arc` is unavailable or the current directory is not an Arc project.
 
-## Install via git
+## Install from GitHub Packages
 
-Install globally from the private git repository:
+`@sentiolabs/pi-arc` is published to GitHub Packages only; it is not published to npmjs.org.
+
+Configure npm to resolve the `@sentiolabs` scope from GitHub Packages. GitHub currently requires npm authentication for GitHub Packages reads, including public packages, so use a GitHub token with `read:packages` permission:
 
 ```bash
-pi install git:git@github.com:sentiolabs/pi-arc
+cat >> ~/.npmrc <<'EOF'
+@sentiolabs:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+EOF
+```
+
+Install globally through Pi:
+
+```bash
+pi install npm:@sentiolabs/pi-arc
 ```
 
 Install into the current project's `.pi/settings.json` instead of global settings:
 
 ```bash
-pi install -l git:git@github.com:sentiolabs/pi-arc
+pi install -l npm:@sentiolabs/pi-arc
 ```
 
-Pin to a branch, tag, or commit ref:
+Pin to a released version:
 
 ```bash
-pi install git:git@github.com:sentiolabs/pi-arc@main
-pi install git:git@github.com:sentiolabs/pi-arc@v0.8.0
+pi install npm:@sentiolabs/pi-arc@0.1.0
 ```
 
 Test without installing permanently:
 
 ```bash
-pi -e git:git@github.com:sentiolabs/pi-arc
+pi -e npm:@sentiolabs/pi-arc
+```
+
+## Install from git
+
+Git installs are supported for source checkouts and unreleased refs:
+
+```bash
+pi install git:git@github.com:sentiolabs/pi-arc
+pi install git:git@github.com:sentiolabs/pi-arc@main
+pi install git:git@github.com:sentiolabs/pi-arc@v0.1.0
 ```
 
 HTTPS works too if your Git credentials are configured:
@@ -231,13 +251,26 @@ Intentionally not ported:
 
 ## Development
 
+Install package dependencies without auto-installing Pi peer dependencies:
+
+```bash
+npm ci
+```
+
+Run tests and inspect the publish tarball:
+
+```bash
+npm test
+npm run pack:dry-run
+```
+
 Regenerate migrated resources from the source Claude plugin:
 
 ```bash
 python3 scripts/migrate-arc-plugin.py
 ```
 
-Smoke test:
+Smoke test in Pi:
 
 ```bash
 PI_OFFLINE=1 pi -e . --list-models
@@ -249,3 +282,16 @@ Useful checks:
 rg '/arc:' skills prompts
 rg 'TaskCreate|TodoWrite|AskUserQuestion|Claude Code' skills prompts
 ```
+
+## Release process
+
+Release Please manages `package.json`, `package-lock.json`, Git tags, GitHub releases, and `CHANGELOG.md`. The first official release is bootstrapped to `v0.1.0`.
+
+Use Conventional Commits on `main` so Release Please can determine the next version:
+
+```text
+feat: add an Arc workflow capability
+fix: correct an Arc command edge case
+```
+
+When a Release Please PR is merged, `.github/workflows/release-please.yml` creates the GitHub release and publishes the package to GitHub Packages with `GITHUB_TOKEN`. GitHub Packages visibility is controlled in GitHub package/repository settings; keep the package linked to the public `sentiolabs/pi-arc` repository or mark the package public after the first publish.

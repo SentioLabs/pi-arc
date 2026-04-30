@@ -19,11 +19,8 @@ for name in ["prompts", "skills", "agents"]:
         shutil.rmtree(p)
     p.mkdir(parents=True, exist_ok=True)
 
-# Static source files.
-for name in ["CHANGELOG.md", "version.txt"]:
-    src = SRC / name
-    if src.exists():
-        shutil.copy2(src, ARC_ROOT / name)
+# Release metadata is managed by this npm package and Release Please.
+# Do not copy the source Claude plugin changelog or legacy version.txt.
 
 for f in sorted((SRC / "commands").glob("*.md")):
     dest_name = f"arc-{f.name}"
