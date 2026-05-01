@@ -41,6 +41,8 @@ Legacy aliases still resolve for compatibility: `haiku` → `small`, `sonnet` �
 
 Prefer the `subagent` tool from `pi-subagents` when it is available **and** Arc agent definitions such as `arc-builder` are installed. If Arc specialist definitions are missing, run `/arc-subagents-sync` (project default) or `/arc-subagents-sync user`, then re-check with `subagent({ action: "list" })`. Otherwise use the bundled `arc_agent` fallback. `arc_agent` is self-contained and sequential only; `pi-subagents` adds chains, async runs, and worktree-isolated parallel patch generation.
 
+**Status visibility:** For long Arc workers after `/arc-plan`, prefer `pi-subagents` launches with `async: true, clarify: false`. The returned run appears in `/subagents-status`; you can also poll it with `subagent({ action: "status", id: "<run-id>" })`. Do not continue to validation, review, patch application, or arc closure until the async run is terminal and you have read its final output. The raw `arc_agent` fallback never appears in `/subagents-status`.
+
 | Task signal | Dispatch `model:` |
 |---|---|
 | Mechanical: 1-2 files, spec unambiguous, no cross-cutting concerns | `small` |
@@ -58,9 +60,9 @@ arc_agent(agent="builder", task="...")                      # standard default
 arc_agent(agent="builder", model="large", task="...")       # complex
 
 # Preferred when pi-subagents Arc agents are installed:
-subagent({ agent: "arc-builder", task: "...", model: "openai-codex/gpt-5.4-mini", context: "fresh" })
-subagent({ agent: "arc-builder", task: "...", model: "openai-codex/gpt-5.3-codex", context: "fresh" })
-subagent({ agent: "arc-builder", task: "...", model: "openai-codex/gpt-5.5", context: "fresh" })
+subagent({ agent: "arc-builder", task: "...", model: "openai-codex/gpt-5.4-mini", context: "fresh", async: true, clarify: false })
+subagent({ agent: "arc-builder", task: "...", model: "openai-codex/gpt-5.3-codex", context: "fresh", async: true, clarify: false })
+subagent({ agent: "arc-builder", task: "...", model: "openai-codex/gpt-5.5", context: "fresh", async: true, clarify: false })
 ```
 
 **When unsure, omit `model:`** — the agent's frontmatter floor is calibrated for the typical case.
@@ -134,23 +136,27 @@ Check whether the task has a `docs-only` label:
 arc show <task-id> --json | jq -e '.labels[] | select(. == "docs-only")' > /dev/null 2>&1
 ```
 
-**If `docs-only`** (exit code 0) — spawn an `doc-writer` subagent:
+**If `docs-only`** (exit code 0) — spawn a `doc-writer` subagent:
 
 Use the template at `./doc-writer-prompt.md`. Fill placeholder `{TASK_ID}`. For docs-only work, the agent default (`small`) is correct — omit `model:` unless the docs task is unusually complex.
 
 Dispatch preference:
-- If `subagent` is available and `arc-doc-writer` is installed: `subagent({ agent: "arc-doc-writer", task: "<filled prompt>", context: "fresh" })`
+- If `subagent` is available and `arc-doc-writer` is installed: `subagent({ agent: "arc-doc-writer", task: "<filled prompt>", context: "fresh", async: true, clarify: false })`
 - If `subagent` is available but Arc specialists are missing: run `/arc-subagents-sync`, verify with `subagent({ action: "list" })`, then retry.
 - Otherwise: `arc_agent(agent="doc-writer", task="<filled prompt>")`
 
-**Otherwise** — spawn an `builder` subagent:
+For async `pi-subagents` dispatches, immediately capture the returned run ID, poll with `subagent({ action: "status", id: "<run-id>" })` or watch `/subagents-status` until terminal, then read the final output before evaluating the report or moving to validation.
+
+**Otherwise** — spawn a `builder` subagent:
 
 Use the template at `./builder-prompt.md`. Fill placeholders (`{TASK_ID}`, `{PRE_TASK_SHA}`, `{DESIGN_EXCERPT}`) and apply Model Selection guidance (see `## Model Selection` above) for the dispatch `model:`.
 
 Dispatch preference:
-- If `subagent` is available and `arc-builder` is installed: `subagent({ agent: "arc-builder", task: "<filled prompt>", model: "<concrete-model-if-needed>", context: "fresh" })`
+- If `subagent` is available and `arc-builder` is installed: `subagent({ agent: "arc-builder", task: "<filled prompt>", model: "<concrete-model-if-needed>", context: "fresh", async: true, clarify: false })`
 - If `subagent` is available but Arc specialists are missing: run `/arc-subagents-sync`, verify with `subagent({ action: "list" })`, then retry.
 - Otherwise: `arc_agent(agent="builder", task="<filled prompt>", model="<tier-if-needed>")`
+
+For async `pi-subagents` dispatches, immediately capture the returned run ID, poll with `subagent({ action: "status", id: "<run-id>" })` or watch `/subagents-status` until terminal, then read the final output before evaluating the report or moving to validation.
 
 ### 4. Evaluate Result
 
@@ -197,9 +203,11 @@ Dispatch `spec-reviewer`:
 Use the template at `./spec-reviewer-prompt.md`. Fill placeholders (`{TASK_ID}`, `{BASE_SHA}`, `{HEAD_SHA}`). Spec review is a focused comparison task — the Arc `standard` tier is appropriate unless the spec is unusually large or ambiguous.
 
 Dispatch preference:
-- If `subagent` is available and `arc-spec-reviewer` is installed: `subagent({ agent: "arc-spec-reviewer", task: "<filled prompt>", model: "openai-codex/gpt-5.3-codex", context: "fresh" })`
+- If `subagent` is available and `arc-spec-reviewer` is installed: `subagent({ agent: "arc-spec-reviewer", task: "<filled prompt>", model: "openai-codex/gpt-5.3-codex", context: "fresh", async: true, clarify: false })`
 - If `subagent` is available but Arc specialists are missing: run `/arc-subagents-sync`, verify with `subagent({ action: "list" })`, then retry.
 - Otherwise: `arc_agent(agent="spec-reviewer", task="<filled prompt>")`
+
+For async `pi-subagents` dispatches, immediately capture the returned run ID, poll with `subagent({ action: "status", id: "<run-id>" })` or watch `/subagents-status` until terminal, then read the final output before handling compliance results.
 
 Do **not** substitute the generic `worker` or `reviewer` agent for spec compliance gates. Generic `pi-subagents` agents are not Arc specialists, and manually passing an Anthropic model bypasses Arc's Pi-native model tier policy. If Arc `pi-subagents` definitions are unavailable, use the bundled `arc_agent` fallback.
 
@@ -252,7 +260,9 @@ subagent({
   ],
   worktree: true,
   concurrency: 1,
-  context: "fresh"
+  context: "fresh",
+  async: true,
+  clarify: false
 })
 ```
 
@@ -370,11 +380,13 @@ subagent({
   ],
   worktree: true,
   concurrency: 3,
-  context: "fresh"
+  context: "fresh",
+  async: true,
+  clarify: false
 })
 ```
 
-`pi-subagents` returns diff stats and a `Full patches: <dir>` path. Temporary worktrees are cleaned up; the patches are the handoff artifact.
+When the async run completes, `pi-subagents` returns diff stats and a `Full patches: <dir>` path. Temporary worktrees are cleaned up; the patches are the handoff artifact.
 
 ### P5. Apply and Verify Patches One at a Time
 

@@ -30,15 +30,55 @@ test('arc extension sync map includes all Arc specialists', () => {
   assert.match(source, /existing file is missing the generated marker; preserving user edits/);
 });
 
-test('arc-build skill references arc-subagents-sync for missing arc agents', () => {
-  const source = read('skills/arc-build/SKILL.md');
-  assert.match(source, /\/arc-subagents-sync/);
+test('arc extension sync guidance distinguishes agent discovery from status monitoring', () => {
+  const source = read('extensions/arc.ts');
+  assert.match(source, /subagent\(\{ action: "list" \}\).*confirm the Arc specialists are available/);
+  assert.match(source, /\/agents.*inspect loaded agent definitions/);
+  assert.match(source, /\/subagents-status.*monitor active\/recent async Arc specialist runs/);
+  assert.match(source, /idle installed agents are listed by.*\/agents/);
+  assert.doesNotMatch(source, /\/subagents-status.*confirm availability/);
 });
 
-test('README documents arc-subagents-sync and avoiding generic worker', () => {
+test('arc-build skill references arc-subagents-sync and async pi-subagents workers', () => {
+  const source = read('skills/arc-build/SKILL.md');
+  assert.match(source, /\/arc-subagents-sync/);
+  assert.match(source, /arc-builder/);
+  assert.match(source, /async: true/);
+  assert.match(source, /clarify: false/);
+  assert.match(source, /subagent\(\{ action: "status", id: "<run-id>" \}\)/);
+  assert.match(source, /until terminal/);
+  assert.match(source, /read the final output/);
+  assert.match(source, /\/subagents-status/);
+});
+
+test('arc-plan prefers arc-issue-manager via pi-subagents before arc_agent fallback', () => {
+  const source = read('skills/arc-plan/SKILL.md');
+  assert.match(source, /arc-issue-manager/);
+  assert.match(source, /subagent\(\{ agent: "arc-issue-manager"/);
+  assert.match(source, /async: true/);
+  assert.match(source, /clarify: false/);
+  assert.match(source, /subagent\(\{ action: "status", id: "<run-id>" \}\)/);
+  assert.match(source, /arc_agent\(agent="issue-manager"/);
+});
+
+test('arc-review prefers arc-code-reviewer via pi-subagents before arc_agent fallback', () => {
+  const source = read('skills/arc-review/SKILL.md');
+  assert.match(source, /arc-code-reviewer/);
+  assert.match(source, /subagent\(\{ agent: "arc-code-reviewer"/);
+  assert.match(source, /async: true/);
+  assert.match(source, /clarify: false/);
+  assert.match(source, /subagent\(\{ action: "status", id: "<run-id>" \}\)/);
+  assert.match(source, /arc_agent\(agent="code-reviewer"/);
+});
+
+test('README documents arc-subagents-sync and status semantics', () => {
   const source = read('README.md');
   assert.match(source, /\/arc-subagents-sync/);
   assert.match(source, /generic `worker`/i);
+  assert.match(source, /Use `subagent\(\{ action: "list" \}\)` and `\/agents` after sync to confirm Arc specialist availability/);
+  assert.match(source, /Use `\/subagents-status` to monitor active\/recent async Arc specialist runs/);
+  assert.match(source, /It does not list idle installed agents/);
+  assert.doesNotMatch(source, /\/subagents-status.*confirm availability/);
 });
 
 test('migration script preserves arc-subagents-sync wording', () => {

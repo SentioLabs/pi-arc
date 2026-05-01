@@ -579,9 +579,9 @@ export default function arcExtension(pi: ExtensionAPI) {
       "Run a bundled Arc specialist agent (builder, reviewer, issue-manager, etc.) in a fresh Pi subprocess. Output is truncated to 50KB/2000 lines.",
     promptSnippet: "Delegate Arc issue-management, implementation, review, docs, and evaluation tasks to bundled specialist agents.",
     promptGuidelines: [
-      "Use arc_agent when an Arc workflow skill asks for a builder, issue-manager, doc-writer, evaluator, spec-reviewer, or code-reviewer subagent.",
-      "Use arc_agent for bulk Arc issue operations instead of keeping verbose CLI output in the main conversation.",
-      "Right-size subagent dispatches with model tiers: small for mechanical/docs/CLI tasks, standard for normal contained work, large for complex or high-risk work.",
+      "Prefer true pi-subagents Arc specialists (arc-builder, arc-issue-manager, arc-code-reviewer, etc.) when synced so long runs can be monitored with /subagents-status.",
+      "Use arc_agent only as the self-contained fallback when Arc pi-subagents definitions are unavailable or a workflow skill explicitly asks for the fallback.",
+      "Right-size fallback arc_agent dispatches with model tiers: small for mechanical/docs/CLI tasks, standard for normal contained work, large for complex or high-risk work.",
     ],
     parameters: Type.Object({
       agent: StringEnum(ARC_AGENT_NAMES),
@@ -784,7 +784,7 @@ export default function arcExtension(pi: ExtensionAPI) {
 
       sendArcMessage(
         "Arc subagents sync",
-        `Scope: **${parsedArgs.scope}**\nTarget directory: \`${targetDir}\`\n\nWritten/updated:\n${writtenText}\n\nSkipped:\n${skippedText}\n\nFailed:\n${failedText}\n\nNext steps:\n1. Run \`subagent({ action: "list" })\` to confirm the Arc specialists are available.\n2. Run \`/agents\` to inspect loaded agent definitions.\n3. Run \`/subagents-status\` to verify pi-subagents health.\n4. Use Arc specialists (for example \`arc-spec-reviewer\`) for Arc gates instead of generic \`worker\` agents.`,
+        `Scope: **${parsedArgs.scope}**\nTarget directory: \`${targetDir}\`\n\nWritten/updated:\n${writtenText}\n\nSkipped:\n${skippedText}\n\nFailed:\n${failedText}\n\nNext steps:\n1. Run \`subagent({ action: "list" })\` to confirm the Arc specialists are available.\n2. Run \`/agents\` to inspect loaded agent definitions.\n3. Use \`/subagents-status\` to monitor active/recent async Arc specialist runs after launch; idle installed agents are listed by \`/agents\`, not the status overlay.\n4. Use Arc specialists (for example \`arc-spec-reviewer\`) for Arc gates instead of generic \`worker\` agents.`,
       );
     },
   });

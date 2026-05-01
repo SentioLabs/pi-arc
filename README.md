@@ -50,7 +50,8 @@ This package is a Pi-native port of the Claude Code Arc plugin at https://github
   - Run `/arc-subagents-sync` to generate Arc specialist agents (`arc-builder`, `arc-doc-writer`, `arc-spec-reviewer`, `arc-code-reviewer`, `arc-evaluator`, `arc-issue-manager`) in project or user scope.
   - Arc workflow skills document where the `subagent` tool is a better fit when `pi-subagents` is installed.
   - Use Arc specialists for Arc gates (especially spec review). Do not substitute generic `worker`/`reviewer` agents, which can drift from Arc prompts and model policy.
-  - Use `subagent({ action: "list" })`, `/agents`, and `/subagents-status` after sync to confirm availability.
+  - Use `subagent({ action: "list" })` and `/agents` after sync to confirm Arc specialist availability.
+  - Use `/subagents-status` to monitor active/recent async Arc specialist runs; idle installed agents are listed by `/agents`, not the status overlay.
   - Keep `arc_agent` as the self-contained fallback when Arc `pi-subagents` definitions are unavailable.
   - Claude-style team deployment is intentionally not ported to Pi.
 
@@ -198,8 +199,9 @@ After syncing, verify agent registration:
 ```text
 subagent({ action: "list" })
 /agents
-/subagents-status
 ```
+
+Use `/subagents-status` to monitor active/recent async Arc specialist runs after launch. It does not list idle installed agents.
 
 For Arc gates (especially spec compliance), use Arc specialists (`arc-spec-reviewer`, etc.) instead of generic `worker`/`reviewer` agents.
 

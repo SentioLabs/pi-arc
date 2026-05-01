@@ -148,11 +148,17 @@ Read the full plan content first (`arc plan show <plan-id>`), then build a task 
 
 **Critical**: Do NOT paste or summarize the plan content into the agent prompt. Instead, pass the plan file path and let the agent read it directly. This prevents content loss from summarization.
 
-Get the plan file path from the `arc plan show` output (the `file_path` field), then dispatch the manifest:
+Get the plan file path from the `arc plan show` output (the `file_path` field), then dispatch the manifest. Prefer true `pi-subagents` so long issue-creation runs are visible in `/subagents-status`:
 
-```
-Use the arc_agent tool with agent="issue-manager":
+Dispatch preference:
+- If `subagent` is available and `arc-issue-manager` is installed: `subagent({ agent: "arc-issue-manager", task: "<manifest below>", context: "fresh", async: true, clarify: false })`
+- After launching async, record the returned run ID and poll with `subagent({ action: "status", id: "<run-id>" })` or use `/subagents-status`. Do **not** validate returned IDs until the async run is terminal and you have read the final output.
+- If `subagent` is available but Arc specialists are missing: run `/arc-subagents-sync`, verify with `subagent({ action: "list" })`, then retry.
+- Otherwise: `arc_agent(agent="issue-manager", task="<manifest below>")`
 
+Use this task payload for whichever dispatcher you choose:
+
+```markdown
 Create the following epic and tasks.
 After creation, set dependencies and labels as listed.
 Return a summary table mapping task names to arc IDs.
