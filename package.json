@@ -41,7 +41,7 @@
     "LICENSE"
   ],
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "access": "public"
   },
   "dependencies": {
     "@juicesharp/rpiv-todo": "^0.12.5"

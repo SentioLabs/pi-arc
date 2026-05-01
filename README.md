@@ -68,18 +68,9 @@ arc onboard
 
 The package fails gracefully when `arc` is unavailable or the current directory is not an Arc project.
 
-## Install from GitHub Packages
+## Install from npmjs.org
 
-`@sentiolabs/pi-arc` is published to GitHub Packages only; it is not published to npmjs.org.
-
-Configure npm to resolve the `@sentiolabs` scope from GitHub Packages. GitHub currently requires npm authentication for GitHub Packages reads, including public packages, so use a GitHub token with `read:packages` permission:
-
-```bash
-cat >> ~/.npmrc <<'EOF'
-@sentiolabs:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
-EOF
-```
+`@sentiolabs/pi-arc` is published publicly on npmjs.org, so npm installs do not require GitHub Packages registry configuration or a GitHub token.
 
 Install globally through Pi:
 
@@ -294,4 +285,15 @@ feat: add an Arc workflow capability
 fix: correct an Arc command edge case
 ```
 
-When a Release Please PR is merged, `.github/workflows/release-please.yml` creates the GitHub release and publishes the package to GitHub Packages with `GITHUB_TOKEN`. GitHub Packages visibility is controlled in GitHub package/repository settings; keep the package linked to the public `sentiolabs/pi-arc` repository or mark the package public after the first publish.
+When a Release Please PR is merged, `.github/workflows/release-please.yml` creates the GitHub release and publishes the package to npmjs.org using npm Trusted Publishing (OIDC) with provenance.
+
+Before the first automated npm release, configure npm Trusted Publishing for the package:
+
+- Package: `@sentiolabs/pi-arc`
+- Publisher: GitHub Actions
+- Repository owner/user: `SentioLabs`
+- Repository: `pi-arc`
+- Workflow filename: `release-please.yml`
+- Environment: leave blank unless a GitHub Environment is intentionally required
+
+npm Trusted Publishing requires an existing package to configure from package settings. If `@sentiolabs/pi-arc` has not been published before, publish a one-time public `0.0.0` bootstrap version or configure the trusted publisher with `npm trust` after the package exists, then let Release Please publish the first official `v0.1.0` release.
