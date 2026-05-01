@@ -2,7 +2,7 @@
 
 Arc issue tracker integration for [Pi](https://pi.dev): packaged Arc skills, prompt templates, session context injection, workflow command aliases, and bundled checklist support via `@juicesharp/rpiv-todo`.
 
-This package is a Pi-native port of the Claude Code Arc plugin at `../agent-nexus/claude-marketplace/plugins/arc`.
+This package is a Pi-native port of the Claude Code Arc plugin at https://github.com/sentiolabs/arc
 
 ## What is included
 
