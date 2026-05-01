@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/SentioLabs/pi-arc/compare/v0.2.0...v0.2.1) (2026-05-01)
+
+
+### Bug Fixes
+
+* **release:** match npm provenance repository URL ([2005635](https://github.com/SentioLabs/pi-arc/commit/2005635e2ac849a6886858f9754d738e49116998))
+
 ## [0.2.0](https://github.com/SentioLabs/pi-arc/compare/v0.1.0...v0.2.0) (2026-05-01)
 
 
