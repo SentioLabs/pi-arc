@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/SentioLabs/pi-arc/compare/v0.3.0...v0.3.1) (2026-05-01)
+
+
+### Bug Fixes
+
+* better arc+subagent support ([e8e5c08](https://github.com/SentioLabs/pi-arc/commit/e8e5c0803365fc6d38634f67f6612812c7716f01))
+
 ## [0.3.0](https://github.com/SentioLabs/pi-arc/compare/v0.2.2...v0.3.0) (2026-05-01)
 
 
