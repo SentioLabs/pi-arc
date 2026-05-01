@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/SentioLabs/pi-arc/compare/v0.2.2...v0.3.0) (2026-05-01)
+
+
+### Features
+
+* prefer pi-subagents for arc workflows ([73e3b01](https://github.com/SentioLabs/pi-arc/commit/73e3b017f96721e297093bdae8602d2d604ee0f5))
+
 ## [0.2.2](https://github.com/SentioLabs/pi-arc/compare/v0.2.1...v0.2.2) (2026-05-01)
 
 
