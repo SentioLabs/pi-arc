@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/SentioLabs/pi-arc/compare/v0.2.1...v0.2.2) (2026-05-01)
+
+
+### Bug Fixes
+
+* **package:** mark pi peer dependencies optional ([d3c49dc](https://github.com/SentioLabs/pi-arc/commit/d3c49dc5aac45995ce4d360e30b6a13158f5618e))
+
 ## [0.2.1](https://github.com/SentioLabs/pi-arc/compare/v0.2.0...v0.2.1) (2026-05-01)
 
 
