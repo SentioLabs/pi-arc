@@ -47,11 +47,12 @@ Extract the design excerpt relevant to this task — typically the sections cove
 
 Fill the template at `./code-reviewer-prompt.md` with the gathered placeholders (`{TASK_ID}`, `{BASE_SHA}`, `{HEAD_SHA}`, `{DESIGN_EXCERPT}`, `{EVALUATOR_STATUS}`). Prefer true `pi-subagents` so longer reviews are visible in `/subagents-status`:
 
-Dispatch preference:
-- If `subagent` is available and `arc-code-reviewer` is installed: `subagent({ agent: "arc-code-reviewer", task: "<filled prompt>", context: "fresh", async: true, clarify: false })`
-- After launching async, record the returned run ID and poll with `subagent({ action: "status", id: "<run-id>" })` or use `/subagents-status`. Do **not** triage findings until the async run is terminal and you have read the final output.
-- If `subagent` is available but Arc specialists are missing: run `/arc-subagents-sync`, verify with `subagent({ action: "list" })`, then retry.
-- Otherwise: `arc_agent(agent="code-reviewer", task="<filled prompt>")`
+Dispatch preference (use **async** so longer reviews appear in `/subagents-status`):
+- Primary: `subagent({ agent: "arc-code-reviewer", task: "<filled prompt>", context: "fresh", async: true, clarify: false })`
+- After launching async, **wait for terminal status** by polling `subagent({ action: "status", id: "<run-id>" })` until status is `completed` or `failed`
+- Users can monitor review progress via `/subagents-status` during the async run
+- If `subagent` unavailable or `arc-code-reviewer` missing: run `/arc-subagents-sync`, then `subagent({ action: "list" })` to verify, then retry primary
+- Fallback only if `pi-subagents` is not installed: `arc_agent(agent="code-reviewer", task="<filled prompt>")`
 
 **Model tier:** Follow the Model Selection table in `../arc-build/SKILL.md`. For most reviews, omit `model:` (use the agent's `standard` default). Escalate to `large` when the diff is large (10+ files), crosses multiple architectural layers, or involves security-sensitive changes. For `pi-subagents`, pass the configured concrete large model only when escalating.
 

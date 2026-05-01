@@ -150,11 +150,12 @@ Read the full plan content first (`arc plan show <plan-id>`), then build a task 
 
 Get the plan file path from the `arc plan show` output (the `file_path` field), then dispatch the manifest. Prefer true `pi-subagents` so long issue-creation runs are visible in `/subagents-status`:
 
-Dispatch preference:
-- If `subagent` is available and `arc-issue-manager` is installed: `subagent({ agent: "arc-issue-manager", task: "<manifest below>", context: "fresh", async: true, clarify: false })`
-- After launching async, record the returned run ID and poll with `subagent({ action: "status", id: "<run-id>" })` or use `/subagents-status`. Do **not** validate returned IDs until the async run is terminal and you have read the final output.
-- If `subagent` is available but Arc specialists are missing: run `/arc-subagents-sync`, verify with `subagent({ action: "list" })`, then retry.
-- Otherwise: `arc_agent(agent="issue-manager", task="<manifest below>")`
+Dispatch preference (use **async** so long-running issue creation appears in `/subagents-status`):
+- Primary: `subagent({ agent: "arc-issue-manager", task: "<manifest below>", context: "fresh", async: true, clarify: false })`
+- After launching async, **wait for terminal status** by polling `subagent({ action: "status", id: "<run-id>" })` until status is `completed` or `failed`
+- Users can monitor progress via `/subagents-status` during the async run
+- If `subagent` unavailable or `arc-issue-manager` missing: run `/arc-subagents-sync`, then `subagent({ action: "list" })` to verify, then retry primary
+- Fallback only if `pi-subagents` is not installed: `arc_agent(agent="issue-manager", task="<manifest below>")`
 
 Use this task payload for whichever dispatcher you choose:
 
