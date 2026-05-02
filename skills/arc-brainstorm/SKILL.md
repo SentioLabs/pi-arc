@@ -107,7 +107,24 @@ Create a task for each step below using the bundled `todo` checklist (via `todo`
 
 ### 5. Identify Shared Contracts (Parallel Readiness)
 
-If the design will produce multiple implementation tasks that could run in parallel, explicitly identify the **shared contracts** — types, interfaces, config keys, constants, and function signatures that multiple tasks will reference.
+If the design can produce independent implementation tasks, the brainstorm output must include a `## Parallel Readiness` section **before** `/arc-plan` creates Arc issues. Use these exact subsection headings:
+
+```markdown
+## Parallel Readiness
+
+### T0 Foundation Decision
+
+### File Ownership Matrix
+
+### Parallel Batch Manifest
+
+### Validation Matrix
+```
+
+- `T0 Foundation Decision` records the sequential foundation step that must land first when multiple tasks depend on the same shared contracts.
+- `File Ownership Matrix` assigns every implementation file to exactly one task. Any overlap must be moved to T0, serialized with dependencies, or merged into one task.
+- `Parallel Batch Manifest` lists the batches, their prerequisites, the tasks in each batch, the independence proof, and the validation.
+- `Validation Matrix` shows which checks prove each batch or task is safe to merge.
 
 Contracts fall into two tiers:
 
