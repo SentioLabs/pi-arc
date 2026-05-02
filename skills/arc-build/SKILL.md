@@ -71,6 +71,12 @@ subagent({ agent: "arc-builder", task: "...", model: "openai-codex/gpt-5.5", con
 
 ## Dispatch Modes
 
+Choose the manifest-driven parallel path first; if the batch is not ready, fall back to sequential dispatch.
+
+### Parallel (plan-driven)
+
+If the plan includes a `### Parallel Batch Manifest`, read it first. Select a batch only when all prerequisites are complete and the gates below pass. When the batch is ready, use [Parallel Patch Protocol](#parallel-patch-protocol) below.
+
 ### Sequential (default)
 
 Tasks are dispatched one at a time through the orchestration loop below. Use this for:
@@ -95,7 +101,11 @@ Parallel worktree dispatch is available **only** through the optional `pi-subage
 
 ## Orchestration Loop
 
-By default, use sequential dispatch. For independent batches with `pi-subagents` available, see [Parallel Patch Protocol](#parallel-patch-protocol) below.
+Start here by checking whether the plan's `Parallel Batch Manifest` can be dispatched in parallel.
+
+### 0. Choose Dispatch Mode
+
+Inspect the plan's `Parallel Batch Manifest` first. If it yields a ready batch and the gates below pass, dispatch that batch through [Parallel Patch Protocol](#parallel-patch-protocol). Otherwise, continue with sequential dispatch.
 
 **Task tracking**: At the start of implementation, create a task list using the bundled `todo` checklist (via `todo` tool / `/todos`) with one entry per arc issue to implement. This provides a visible progress tracker in the CLI. Update each task as you work:
 - `in_progress` when dispatching the subagent
@@ -182,7 +192,7 @@ When the subagent reports back, check its **Status** (one of `DONE | DONE_WITH_C
 
 When re-dispatching, include the previous report's concerns / blockers so the implementer knows exactly what to fix:
 
-```
+```text
 Continue implementing this task. A previous attempt reported <status> with these concerns:
 
 <paste concerns>
@@ -332,51 +342,40 @@ Use this protocol only with `pi-subagents` worktree mode. Do **not** use `arc_ag
 
 ### P1. Commit Checkpoint
 
-Before switching to parallel, ensure all sequential work is committed and pushed:
+Before switching to parallel, ensure all sequential work is committed and pushed. Run this exact gate:
 
 ```bash
-git status          # Must be clean — no unstaged or uncommitted changes
-git log -3          # Verify recent sequential commits are present
-git push            # Establish a recovery point on the remote
-```
-
-**Hard gate**: Do NOT proceed if `git status` shows uncommitted changes.
-
-### P2. Record HEAD Anchor
-
-```bash
+git status --short
+git push
 PARALLEL_BASE=$(git rev-parse HEAD)
 echo "Parallel base: $PARALLEL_BASE"
 ```
 
-This is the baseline all temporary worktrees will branch from. Record it — you'll need it for verification after patch application.
+If `git status --short` reports changes, stop and clean the tree first.
 
-### P3. Verify Independence
+### P2. Record HEAD Anchor
 
-For each task in the planned parallel batch:
+This anchor is the baseline all temporary worktrees will branch from. Record it before dispatching the batch.
 
-```bash
-arc show <task-id>
-```
+### P3. Re-check Batch Gates Before Dispatch
 
-Confirm:
-- No `blocks`/`blockedBy` relationships between tasks in this batch
-- No overlapping file paths in task descriptions
-- Each task has a clearly scoped, non-ambiguous specification
-- Each task can be validated independently after its patch is applied
+Re-check these gates immediately before dispatching the batch:
+- `subagent({ action: "list" })` shows Arc specialists such as `arc-builder` and `arc-doc-writer`.
+- Each task in the batch is ready in Arc.
+- No task in the batch blocks another task in the batch.
+- No builder/doc-writer task owns the same file as another task in the batch.
+- Each task has a clear validation command.
 
-If any task fails these checks, remove it from the parallel batch and handle it sequentially after.
+For each task in the manifest, `arc show <task-id>` and confirm the batch is still independent.
 
 ### P4. Dispatch with `pi-subagents`
 
-Dispatch all parallel tasks in one `subagent` tool call so they branch from the same `PARALLEL_BASE`:
+Dispatch the selected batch in one `subagent` tool call so the tasks branch from the same `PARALLEL_BASE`:
 
-```ts
+```typescript
 subagent({
   tasks: [
-    { agent: "arc-builder", task: "<filled builder prompt for task 1>", model: "openai-codex/gpt-5.3-codex" },
-    { agent: "arc-builder", task: "<filled builder prompt for task 2>", model: "openai-codex/gpt-5.3-codex" },
-    { agent: "arc-doc-writer", task: "<filled doc-writer prompt for task 3>", model: "openai-codex/gpt-5.4-mini" }
+    { agent: "arc-builder", task: "<filled builder prompt>", model: "<configured standard model>" }
   ],
   worktree: true,
   concurrency: 3,
@@ -389,6 +388,8 @@ subagent({
 When the async run completes, `pi-subagents` returns diff stats and a `Full patches: <dir>` path. Temporary worktrees are cleaned up; the patches are the handoff artifact.
 
 ### P5. Apply and Verify Patches One at a Time
+
+Apply, validate, review, commit, and close exactly one returned patch at a time.
 
 For each returned patch:
 

@@ -1,6 +1,6 @@
 # Pi Arc Package
 
-Arc issue tracker integration for [Pi](https://pi.dev): packaged Arc skills, prompt templates, session context injection, workflow command aliases, and bundled checklist support via `@juicesharp/rpiv-todo`.
+Arc issue tracker integration for [Pi](https://pi.dev): packaged Arc skills, prompt templates, session context injection, workflow command aliases, bundled checklist support via `@juicesharp/rpiv-todo`, and bundled Arc specialist support via `pi-subagents`.
 
 This package is a Pi-native port of the Claude Code Arc plugin at https://github.com/sentiolabs/arc
 
@@ -29,7 +29,7 @@ This package is a Pi-native port of the Claude Code Arc plugin at https://github
   - `/arc-which` — run `arc which`
   - `/arc-prime` — show cached `arc prime` context
   - `/arc-refresh` — refresh cached `arc prime` context
-  - `/arc-subagents-sync [project|user]` — generate Arc specialist definitions for `pi-subagents`
+  - `/arc-subagents-sync [project|user]` — generate Arc specialist definitions from the bundled `pi-subagents` copy
   - `/arc-plan`, `/arc-build`, `/arc-review`, etc. — friendly aliases for the corresponding skills
 - **Session context injection**:
   - On session start, the extension runs `arc prime` and injects its output into the system prompt as `<arc-context>`.
@@ -49,14 +49,10 @@ This package is a Pi-native port of the Claude Code Arc plugin at https://github
   - Supports `builder`, `code-reviewer`, `doc-writer`, `evaluator`, `issue-manager`, and `spec-reviewer`.
   - Resolves Arc model tiers (`small`, `standard`, `large`) to concrete Pi models so orchestrators can right-size subagent dispatches.
   - Current limitation: `isolation: "worktree"` is recognized but not implemented yet.
-- **Optional `pi-subagents` companion support**:
-  - Run `/arc-subagents-sync` to generate Arc specialist agents (`arc-builder`, `arc-doc-writer`, `arc-spec-reviewer`, `arc-code-reviewer`, `arc-evaluator`, `arc-issue-manager`) in project or user scope.
-  - Arc workflow skills document where the `subagent` tool is a better fit when `pi-subagents` is installed.
-  - Use Arc specialists for Arc gates (especially spec review). Do not substitute generic `worker`/`reviewer` agents, which can drift from Arc prompts and model policy.
-  - Use `subagent({ action: "list" })` and `/agents` after sync to confirm Arc specialist availability.
-  - Use `/subagents-status` to monitor active/recent async Arc specialist runs; idle installed agents are listed by `/agents`, not the status overlay.
-  - Keep `arc_agent` as the self-contained fallback when Arc `pi-subagents` definitions are unavailable.
-  - Claude-style team deployment is intentionally not ported to Pi.
+- **Bundled `pi-subagents` companion support**:
+  - `@sentiolabs/pi-arc` bundles and loads `pi-subagents` by default, so Arc specialists are available without a separate install.
+  - Pi's package docs recommend bundling other Pi packages through `dependencies` + `bundledDependencies`, then referencing their resources through `node_modules/...` paths in the package's `pi` manifest.
+  - If you previously installed standalone `pi-subagents`, remove the standalone package from `~/.pi/agent/settings.json` or project `.pi/settings.json` if duplicate tools or commands appear. The bundled copy from `@sentiolabs/pi-arc` is enough for Arc workflows.
 
 ## Prerequisites
 
@@ -193,7 +189,9 @@ Override the defaults in `~/.pi/agent/settings.json` or project `.pi/settings.js
 
 For compatibility, `arc_agent` still maps legacy aliases: `haiku` → `small`, `sonnet` → `standard`, `opus` → `large`.
 
-## Sync Arc specialists into `pi-subagents`
+## Sync Arc specialists into bundled `pi-subagents`
+
+`@sentiolabs/pi-arc` bundles and loads `pi-subagents` by default, so `/arc-subagents-sync` refreshes the bundled specialist definitions rather than relying on a standalone install.
 
 Use `/arc-subagents-sync` to generate Arc specialist agent files from this package's bundled prompts:
 
@@ -204,7 +202,15 @@ Use `/arc-subagents-sync` to generate Arc specialist agent files from this packa
 - `arc-evaluator`
 - `arc-issue-manager`
 
+Pi's package docs recommend bundling other Pi packages through `dependencies` + `bundledDependencies`, then referencing their resources through `node_modules/...` paths in the package's `pi` manifest.
+
+Bundled resources resolve from `./node_modules/pi-subagents/src/extension/index.ts`, `./node_modules/pi-subagents/skills`, and `./node_modules/pi-subagents/prompts`.
+
 By default, files are written to project scope (`<cwd>/.pi/agents/`). Pass `user` or `--user` to write to `~/.pi/agent/agents/` instead.
+
+If you previously installed standalone `pi-subagents`, remove the standalone package from `~/.pi/agent/settings.json` or project `.pi/settings.json` if duplicate tools or commands appear. The bundled copy from `@sentiolabs/pi-arc` is enough for Arc workflows.
+
+The `issue-manager` agent stays phased: create the epic first, then child tasks next, then dependencies/labels after all IDs exist. This is sequencing only; true parallel issue creation is not enabled yet.
 
 Generated files include a marker comment so reruns can safely update Arc-managed files while preserving manual edits in user-authored files.
 
@@ -218,6 +224,15 @@ subagent({ action: "list" })
 Use `/subagents-status` to monitor active/recent async Arc specialist runs after launch. It does not list idle installed agents.
 
 For Arc gates (especially spec compliance), use Arc specialists (`arc-spec-reviewer`, etc.) instead of generic `worker`/`reviewer` agents.
+
+- Keep `arc_agent` as the self-contained fallback when Arc `pi-subagents` definitions are unavailable.
+- Claude-style team deployment is intentionally not ported to Pi.
+
+## Execution lanes
+
+- Sequential Arc build: use when tasks overlap, dependencies are linear, or `pi-subagents` is unavailable.
+- Parallel Arc batch: use when `/arc-plan` provides a T0 foundation, file ownership matrix, parallel batch manifest, and validation matrix.
+- Ant Colony: future/optional lane for large exploratory work; not a replacement for Arc gates in this iteration.
 
 ## Naming differences from the Claude plugin
 
@@ -245,7 +260,7 @@ Implemented:
 - Bundled `@juicesharp/rpiv-ask-user-question` package for interactive workflow decisions
 - Pi-native `arc_agent` custom tool for sequential subagent execution
 - `/arc-subagents-sync` command for generating Arc specialist `pi-subagents` definitions
-- Optional guidance for using `pi-subagents` for worktree-isolated evaluator runs and independent parallel builder batches
+- Bundled `pi-subagents` support for worktree-isolated evaluator runs, independent parallel builder batches, and phased issue-manager creation
 - Maintainer-only `/arc-source-sync` workflow for syncing from the Claude Arc plugin source
 
 Not yet implemented:

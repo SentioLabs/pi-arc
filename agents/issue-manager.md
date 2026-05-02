@@ -94,36 +94,32 @@ The `--parent` flag automatically creates a parent-child dependency. No manual `
 
 ## Processing Task Manifests
 
-When receiving a structured manifest from the `plan` or `brainstorm` skills:
+When receiving a structured manifest from the `plan` or `brainstorm` skills, parse the `## Epic` and `## Tasks` sections to assemble the manifest, then process it in phases:
 
-1. **Parse tasks** from the `## Tasks` section — each `### T<n>: <title>` block defines one task
-2. **Create all tasks in parallel** using concurrent Bash tool calls — arc handles concurrent writes safely. Issue one Bash call per task in a single response:
+1. **Create the epic first** and capture the epic ID.
+2. **Create all child tasks** with the epic as parent before applying dependencies.
    ```bash
    arc create "Task title" --type=task --parent=<epic-id> --stdin <<'EOF'
    Full multi-line description here.
    EOF
    ```
-3. **Track the ID mapping** — record logical name (T1, T2, P1, etc.) → arc ID from each creation output
-4. **Set dependencies** from the `## Dependencies` section, substituting logical names with real IDs:
+3. **Capture the complete task-name-to-ID table**.
+4. **Apply dependencies only after all child IDs exist**.
    ```bash
    arc dep add <real-later-id> <real-earlier-id> --type=blocks
    ```
-5. **Apply labels** from the `## Labels` section — use the API via the arc client:
+5. **Apply labels after dependencies**, or in the same post-creation phase.
    ```bash
    # Labels are managed via the REST API (no CLI command exists)
    # Use arc update to add label context in the description, or
    # note the labels in the summary for the dispatcher to handle
    ```
-6. **Return a markdown summary table** matching the `## Required Output` format:
-   ```
-   | Task | Arc ID   | Title                    |
-   |------|----------|--------------------------|
-   | T1   | PROJ-5.1 | Implement storage layer  |
-   | T2   | PROJ-5.2 | Add API endpoints        |
-   ```
+6. **Return the final ID table and dependency summary**.
+
+**Concurrency note:** Concurrent child-task creation is future work pending Arc CLI/server concurrency verification. Do not claim true parallel CLI issue creation is safe today.
 
 **Handling partial failures**: If a task creation fails mid-manifest:
-- Continue creating the remaining tasks — do not abort the batch
+- Continue creating the remaining tasks in order — do not abort the manifest
 - Report partial results clearly: "Created 4/5 tasks. T3 failed: `<error message>`"
 - Include the ID mapping for all successfully created tasks so the dispatcher can act on what exists
 - Do not attempt to clean up already-created tasks — the dispatcher will decide

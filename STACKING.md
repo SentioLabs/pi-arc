@@ -23,7 +23,7 @@ when **all** of the following hold:
 **Don't stack** when:
 
 - Tasks are independent and have no shared files — use arc's
-  [Parallel Dispatch Protocol](./skills/build/SKILL.md#parallel-dispatch-protocol)
+  [Parallel Patch Protocol](./skills/arc-build/SKILL.md#parallel-patch-protocol)
   with worktrees. Stacking dependent tasks and parallelizing independent tasks
   are different problem shapes; don't conflate them.
 - The epic is one task, or a handful of tasks that share files heavily — one PR
@@ -64,7 +64,7 @@ git-spice auth status                # confirm logged into the forge
 
 ### 1. Brainstorm + plan (unchanged)
 
-```
+```text
 /arc:brainstorm                      # produces docs/plans/<file>.md with the marker
 /arc:plan                            # creates epic + tasks with dependencies
 ```
@@ -104,7 +104,7 @@ arc update $TASK --take
 git-spice branch create $SLUG --no-commit
 
 # Dispatch the builder per the normal arc:build flow.
-# Use the model-selection guidance and prompt template from skills/build/SKILL.md.
+# Use the model-selection guidance and prompt template from skills/arc-build/SKILL.md.
 # The builder implements + commits on the new branch.
 #   ↳ run spec-reviewer, code-reviewer, evaluator (if applicable) per the
 #     orchestration loop — they all operate on PRE_TASK_SHA..HEAD on this branch.

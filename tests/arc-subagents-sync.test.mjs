@@ -75,7 +75,9 @@ test('README documents arc-subagents-sync and status semantics', () => {
   const source = read('README.md');
   assert.match(source, /\/arc-subagents-sync/);
   assert.match(source, /generic `worker`/i);
-  assert.match(source, /Use `subagent\(\{ action: "list" \}\)` and `\/agents` after sync to confirm Arc specialist availability/);
+  assert.match(source, /After syncing, verify agent registration/);
+  assert.match(source, /subagent\(\{ action: "list" \}\)/);
+  assert.match(source, /\/agents/);
   assert.match(source, /Use `\/subagents-status` to monitor active\/recent async Arc specialist runs/);
   assert.match(source, /It does not list idle installed agents/);
   assert.doesNotMatch(source, /\/subagents-status.*confirm availability/);
