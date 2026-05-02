@@ -15,7 +15,7 @@ If you don't understand why something is broken, you cannot fix it. A "fix" with
 
 ## 4-Phase Process
 
-Create a checklist using the bundled `todo` tool (or `/todos`) with these phases, then work through them:
+Create a checklist using the bundled `todo` tool (or `/todos`) with these phases and work through them:
 
 ### Phase 1: Investigate Root Cause
 

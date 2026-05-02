@@ -28,7 +28,7 @@ The search results show `[topic]` in brackets - use that topic name with `arc do
 
 ```bash
 arc docs search "blocks vs related"     # dependency types
-arc docs search "todo checklist vs arc" # boundaries
+arc docs search "todo checklist vs arc"      # boundaries
 arc docs search "compaction notes"      # resumability
 arc docs search "session start"         # workflows
 ```

@@ -136,7 +136,8 @@ Start Pi in an Arc-enabled project and run:
 /arc-ready
 /arc-create "Fix login bug" --type bug --priority 1
 /arc-show <issue-id>
-/arc-plan <plan-id>
+/arc-brainstorm
+/arc-plan docs/plans/<file>.md
 /arc-build <epic-id>
 /arc-finish
 ```
@@ -151,7 +152,17 @@ You can also invoke skills directly:
 
 ## Arc vs `todo` boundary
 
-Use Arc for persistent, auditable issue tracking across sessions (`arc create`, `arc update`, dependencies, plans, and closure history). Use bundled `rpiv-todo` (`todo` tool + `/todos` + overlay) for visible, in-session checklists while you execute the current workflow.
+Use Arc for persistent, auditable issue tracking across sessions (`arc create`, `arc update`, dependencies, plan shares, and closure history). Use bundled `rpiv-todo` (`todo` tool + `/todos` + overlay) for visible, in-session checklists while you execute the current workflow.
+
+## Plan review surfaces
+
+`/skill:arc-brainstorm` writes design docs under `docs/plans/` and asks how to register them for review:
+
+- Legacy local planner: `arc plan create <file>` for a simple local-only comment thread.
+- Encrypted local share: `arc share create <file>` for encrypted local review with annotations.
+- Encrypted remote share: `arc share create <file> --remote` for reviewers on other machines.
+
+The brainstorm skill writes a first-line marker like `<!-- arc-review: kind=share-remote id=<id> -->`; `/skill:arc-plan` reads that marker to choose the matching `arc plan` or `arc share` commands.
 
 ## Arc model tiers
 

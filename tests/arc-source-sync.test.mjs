@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -34,6 +34,14 @@ test('arc-source-sync skill exists and is maintainer-only', () => {
   assert.match(source, /Release Please-managed/);
 });
 
+test('migration script preserves Pi-only skills and excludes upstream eval fixtures', () => {
+  const source = read('scripts/migrate-arc-plugin.py');
+  assert.match(source, /PI_LOCAL_SKILL_DIRS = \{"arc-source-sync"\}/);
+  assert.match(source, /ignore=shutil\.ignore_patterns\("evals"\)/);
+  assert.equal(existsSync('skills/arc-brainstorm/evals'), false);
+  assert.equal(existsSync('skills/arc-plan/evals'), false);
+});
+
 test('arc extension registers arc-source-sync slash alias', () => {
   const source = read('extensions/arc.ts');
   assert.match(source, /command: "arc-source-sync"/);
@@ -47,4 +55,11 @@ test('README documents maintainer-only source sync', () => {
   assert.match(source, /Maintainer source sync/);
   assert.match(source, /maintainer-only `\/arc-source-sync` skill\/command/);
   assert.match(source, /python3 scripts\/migrate-arc-plugin\.py --source ~\/foo\/bar\/arc/);
+});
+
+test('README documents arc share review surfaces', () => {
+  const source = read('README.md');
+  assert.match(source, /Plan review surfaces/);
+  assert.match(source, /arc share create <file> --remote/);
+  assert.match(source, /arc-review: kind=share-remote id=<id>/);
 });
