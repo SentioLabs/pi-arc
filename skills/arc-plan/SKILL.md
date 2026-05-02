@@ -258,7 +258,17 @@ Description:
 |------|--------|-------|
 | Epic | ...    | ...   |
 | T1   | ...    | ...   |
+
+## Timing
+| Phase | elapsed_ms |
+|-------|------------|
+| epic | ... |
+| child_tasks | ... |
+| dependencies | ... |
+| labels | ... |
 ```
+
+The `## Timing` section is required for bulk issue creation; use `unknown` for a phase only if the issue-manager could not capture a timestamp.
 
 **IMPORTANT**: The epic description MUST contain the complete approved design. The agent reads the plan file directly to avoid any summarization or content loss. The plan file is ephemeral; the epic description is the permanent record.
 
