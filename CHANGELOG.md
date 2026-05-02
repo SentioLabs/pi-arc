@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.0](https://github.com/SentioLabs/pi-arc/compare/v0.5.1...v0.6.0) (2026-05-02)
+
+
+### Features
+
+* bundle rpiv ask user question package ([196fe2c](https://github.com/SentioLabs/pi-arc/commit/196fe2c0aa10e1b6209c3b6c9d96ccd215693c28))
+
+
+### Bug Fixes
+
+* mark bundled ask user package in lockfile ([9434ff2](https://github.com/SentioLabs/pi-arc/commit/9434ff28b16f88ca9f5c2edffeb9fe24757a06a5))
+* remove duplicate bundle dependency metadata ([1914bad](https://github.com/SentioLabs/pi-arc/commit/1914bad62cf4afb72b8c14400fe9c72587a84b20))
+
 ## [0.5.1](https://github.com/SentioLabs/pi-arc/compare/v0.5.0...v0.5.1) (2026-05-02)
 
 
