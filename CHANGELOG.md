@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/SentioLabs/pi-arc/compare/v0.7.0...v0.7.1) (2026-05-02)
+
+
+### Performance Improvements
+
+* **arc:** speed up issue manager dispatch ([bb4d072](https://github.com/SentioLabs/pi-arc/commit/bb4d072fa8e4d83e18dc84346e9d61c357f30538))
+
 ## [0.7.0](https://github.com/SentioLabs/pi-arc/compare/v0.6.0...v0.7.0) (2026-05-02)
 
 
