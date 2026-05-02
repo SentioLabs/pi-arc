@@ -98,17 +98,19 @@ const EXTENSION_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = path.resolve(EXTENSION_DIR, "..");
 const AGENTS_DIR = path.join(PACKAGE_ROOT, "agents");
 
-type ArcModelTier = "small" | "standard" | "large";
+type ArcModelTier = "nano" | "small" | "standard" | "large";
 
 type ArcModelTierMap = Record<ArcModelTier, string>;
 
 const DEFAULT_ARC_MODEL_TIERS: ArcModelTierMap = {
+  nano: "openai-codex/gpt-5.4-nano",
   small: "openai-codex/gpt-5.4-mini",
   standard: "openai-codex/gpt-5.3-codex",
   large: "openai-codex/gpt-5.5",
 };
 
-const LEGACY_MODEL_TIER_ALIASES: Record<string, ArcModelTier> = {
+const MODEL_TIER_ALIASES: Record<string, ArcModelTier> = {
+  nano: "nano",
   haiku: "small",
   mini: "small",
   small: "small",
@@ -210,7 +212,7 @@ async function modelPattern(model: string | undefined, cwd: string): Promise<str
   const normalized = trimmed.toLowerCase();
   if (!normalized) return undefined;
 
-  const tier = LEGACY_MODEL_TIER_ALIASES[normalized];
+  const tier = MODEL_TIER_ALIASES[normalized];
   if (!tier) return trimmed;
 
   const tiers = await loadArcModelTiers(cwd);
@@ -441,13 +443,14 @@ export default function arcExtension(pi: ExtensionAPI) {
     promptSnippet: "Delegate Arc issue-management, implementation, review, docs, and evaluation tasks to bundled specialist agents.",
     promptGuidelines: [
       "Prefer true pi-subagents Arc specialists (arc-builder, arc-issue-manager, arc-code-reviewer, etc.) when synced so long runs can be monitored with /subagents-status.",
+      "For bulk issue creation, do not use arc_agent issue-manager when subagent({ action: \"list\" }) shows arc-issue-manager; dispatch arc-issue-manager asynchronously instead.",
       "Use arc_agent only as the self-contained fallback when Arc pi-subagents definitions are unavailable or a workflow skill explicitly asks for the fallback.",
-      "Right-size fallback arc_agent dispatches with model tiers: small for mechanical/docs/CLI tasks, standard for normal contained work, large for complex or high-risk work.",
+      "Right-size fallback arc_agent dispatches with model tiers: nano for bulk CLI issue creation, small for mechanical/docs tasks, standard for normal contained work, large for complex or high-risk work.",
     ],
     parameters: Type.Object({
       agent: StringEnum(ARC_AGENT_NAMES),
       task: Type.String({ description: "Complete task prompt to give the subagent." }),
-      model: Type.Optional(Type.String({ description: "Optional Pi model pattern override, e.g. haiku, sonnet, opus." })),
+      model: Type.Optional(Type.String({ description: "Optional Pi model pattern override, e.g. nano, haiku, sonnet, opus." })),
       isolation: Type.Optional(StringEnum(["none", "worktree"] as const)),
     }),
     async execute(_toolCallId: string, params: any, signal: AbortSignal | undefined, onUpdate: any, ctx: ExtensionContext) {

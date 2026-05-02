@@ -169,7 +169,8 @@ Arc subagents use Pi-native model tiers so the orchestrator can choose a right-s
 
 | Tier | Default concrete model | Typical use |
 |---|---|---|
-| `small` | `openai-codex/gpt-5.4-mini` | CLI issue operations, docs, mechanical edits |
+| `nano` | `openai-codex/gpt-5.4-nano` | Bulk CLI issue creation and other low-reasoning issue-manager work |
+| `small` | `openai-codex/gpt-5.4-mini` | Docs and mechanical edits |
 | `standard` | `openai-codex/gpt-5.3-codex` | Normal contained implementation/review |
 | `large` | `openai-codex/gpt-5.5` | Complex, cross-cutting, or security-sensitive work |
 
@@ -179,6 +180,7 @@ Override the defaults in `~/.pi/agent/settings.json` or project `.pi/settings.js
 {
   "arc": {
     "modelTiers": {
+      "nano": "openai-codex/gpt-5.4-nano",
       "small": "openai-codex/gpt-5.4-mini",
       "standard": "openai-codex/gpt-5.3-codex",
       "large": "openai-codex/gpt-5.5"
@@ -187,7 +189,7 @@ Override the defaults in `~/.pi/agent/settings.json` or project `.pi/settings.js
 }
 ```
 
-For compatibility, `arc_agent` still maps legacy aliases: `haiku` → `small`, `sonnet` → `standard`, `opus` → `large`.
+For compatibility, `arc_agent` still maps legacy aliases: `haiku` → `small`, `sonnet` → `standard`, `opus` → `large`. New prompts can use `nano` directly for low-reasoning issue-manager work.
 
 ## Sync Arc specialists into bundled `pi-subagents`
 
@@ -210,7 +212,7 @@ By default, files are written to project scope (`<cwd>/.pi/agents/`). Pass `user
 
 If you previously installed standalone `pi-subagents`, remove the standalone package from `~/.pi/agent/settings.json` or project `.pi/settings.json` if duplicate tools or commands appear. The bundled copy from `@sentiolabs/pi-arc` is enough for Arc workflows.
 
-The `issue-manager` agent stays phased: create the epic first, then child tasks next, then dependencies/labels after all IDs exist. This is sequencing only; true parallel issue creation is not enabled yet.
+The `issue-manager` agent defaults to the `nano` model tier and stays phased: create the epic first, then child tasks next, then dependencies/labels after all IDs exist. It prints phase-level timing/progress lines for bulk issue creation. This is sequencing only; true parallel issue creation is not enabled yet.
 
 Generated files include a marker comment so reruns can safely update Arc-managed files while preserving manual edits in user-authored files.
 

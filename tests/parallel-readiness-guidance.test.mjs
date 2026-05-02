@@ -21,14 +21,21 @@ test('arc-brainstorm documents parallel readiness headings', () => {
   assertIncludesAll(read('skills/arc-brainstorm/SKILL.md'), PARALLEL_READINESS_HEADINGS);
 });
 
-test('arc-plan documents parallel readiness and issue-manager phases', () => {
+test('arc-plan documents parallel readiness, issue-manager phases, and timing output', () => {
   const source = read('skills/arc-plan/SKILL.md');
   assertIncludesAll(source, PARALLEL_READINESS_HEADINGS);
   assertIncludesAll(source, ISSUE_MANAGER_PHASE_TERMS);
+  assert.match(source, /## Timing/);
+  assert.match(source, /elapsed_ms/);
 });
 
 test('issue-manager documents safe phased issue creation', () => {
-  assertIncludesAll(read('agents/issue-manager.md'), ISSUE_MANAGER_PHASE_TERMS);
+  const source = read('agents/issue-manager.md');
+  assertIncludesAll(source, ISSUE_MANAGER_PHASE_TERMS);
+  assert.match(source, /^model:\s*nano$/m);
+  assert.match(source, /phase=/);
+  assert.match(source, /elapsed_ms/);
+  assert.match(source, /## Timing/);
 });
 
 test('arc-build consumes the parallel batch manifest safely', () => {

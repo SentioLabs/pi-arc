@@ -5,7 +5,7 @@ tools:
   - read
   - find
   - grep
-model: small
+model: nano
 ---
 
 # Arc Issue Tracker Agent
@@ -76,6 +76,20 @@ arc show <id>                        # View dependencies for issue
 3. **Report Results**: Clearly summarize what was done
 4. **Handle Errors**: If a command fails, explain why and suggest fixes
 
+## Timing / Progress Instrumentation
+
+For bulk operations, print lightweight progress lines before and after each phase so the dispatcher can tell whether time is spent in the model or in the Arc CLI:
+
+```bash
+START_MS=$(node -e 'console.log(Date.now())')
+echo "[arc-issue-manager] phase=child_tasks status=start"
+# phase commands here
+END_MS=$(node -e 'console.log(Date.now())')
+echo "[arc-issue-manager] phase=child_tasks status=done elapsed_ms=$((END_MS-START_MS))"
+```
+
+Use phase names such as `epic`, `child_tasks`, `dependencies`, `labels`, and `verification`. Include a final `## Timing` section in the summary with per-phase `elapsed_ms` values when available. This instrumentation is informational only; do not add sleeps, polling loops, or extra verification that the manifest did not request.
+
 ## Creating Epics with Tasks
 
 When asked to create an epic with subtasks:
@@ -114,7 +128,9 @@ When receiving a structured manifest from the `plan` or `brainstorm` skills, par
    # Use arc update to add label context in the description, or
    # note the labels in the summary for the dispatcher to handle
    ```
-6. **Return the final ID table and dependency summary**.
+6. **Return the final ID table, dependency summary, and `## Timing` summary**.
+
+Print `[arc-issue-manager] phase=<name> status=start|done elapsed_ms=<n>` progress lines around each phase (`epic`, `child_tasks`, `dependencies`, `labels`, and optional `verification`) so long-running issue creation is observable.
 
 **Concurrency note:** Concurrent child-task creation is future work pending Arc CLI/server concurrency verification. Do not claim true parallel CLI issue creation is safe today.
 
@@ -154,5 +170,6 @@ When reporting results:
 - List created issue IDs with their titles
 - Confirm status changes
 - Summarize any errors encountered
+- Include a `## Timing` section with phase-level elapsed times for bulk operations when available
 - Provide next steps if applicable
 - Format all output (descriptions, summaries, tables) using GFM: fenced code blocks with language tags, headings for structure, lists for organization, inline code for paths/commands

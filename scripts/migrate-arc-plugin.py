@@ -417,7 +417,8 @@ Every Arc subagent dispatch can override the subagent's frontmatter model via th
 
 | Tier | Default concrete model | Use for |
 |---|---|---|
-| `small` | `openai-codex/gpt-5.4-mini` | Mechanical edits, docs, CLI issue operations |
+| `nano` | `openai-codex/gpt-5.4-nano` | Bulk CLI issue creation and other low-reasoning issue-manager work |
+| `small` | `openai-codex/gpt-5.4-mini` | Mechanical edits and docs |
 | `standard` | `openai-codex/gpt-5.3-codex` | Normal contained implementation/review |
 | `large` | `openai-codex/gpt-5.5` | Cross-cutting, architectural, security-sensitive, or adversarial review |
 
@@ -427,6 +428,7 @@ Users can override the tier map in `~/.pi/agent/settings.json` or project `.pi/s
 {
   "arc": {
     "modelTiers": {
+      "nano": "openai-codex/gpt-5.4-nano",
       "small": "openai-codex/gpt-5.4-mini",
       "standard": "openai-codex/gpt-5.3-codex",
       "large": "openai-codex/gpt-5.5"
@@ -435,7 +437,7 @@ Users can override the tier map in `~/.pi/agent/settings.json` or project `.pi/s
 }
 ```
 
-Legacy aliases still resolve for compatibility: `haiku` → `small`, `sonnet` → `standard`, `opus` → `large`. Prefer the Pi-native tier names in new prompts.
+Legacy aliases still resolve for compatibility: `haiku` → `small`, `sonnet` → `standard`, `opus` → `large`. Prefer the Pi-native tier names in new prompts, including `nano` for low-reasoning issue-manager work.
 
 Prefer the `subagent` tool from `pi-subagents` when it is available **and** Arc agent definitions such as `arc-builder` are installed. If Arc specialist definitions are missing, run `/arc-subagents-sync` (project default) or `/arc-subagents-sync user`, then re-check with `subagent({ action: "list" })`. Otherwise use the bundled `arc_agent` fallback. `arc_agent` is self-contained and sequential only; `pi-subagents` adds chains, async runs, and worktree-isolated parallel patch generation.
 
@@ -443,10 +445,11 @@ Prefer the `subagent` tool from `pi-subagents` when it is available **and** Arc 
 
 | Task signal | Dispatch `model:` |
 |---|---|
+| Bulk issue creation or other low-reasoning Arc CLI operations | `nano` |
 | Mechanical: 1-2 files, spec unambiguous, no cross-cutting concerns | `small` |
 | Standard: integration work, multi-file but contained, unambiguous | omit `model:` (use agent default) or `standard` |
 | Complex: 3+ files, cross-layer, design judgment required, migrations, breaking changes | `large` |
-| Re-dispatch after `BLOCKED` | escalate one tier (`small` → `standard` → `large`); stop at `large` |
+| Re-dispatch after `BLOCKED` | escalate one tier (`nano` → `small` → `standard` → `large`); stop at `large` |
 | Re-dispatch after `NEEDS_CONTEXT` | same tier, richer context |
 
 Examples:
@@ -552,7 +555,7 @@ patch_file("skills/arc-build/SKILL.md", [
     ),
     (
         "Escalate one model tier (haiku → sonnet → opus) per the Model Selection escalation rule",
-        "Escalate one model tier (`small` → `standard` → `large`) per the Model Selection escalation rule",
+        "Escalate one model tier (`nano` → `small` → `standard` → `large`) per the Model Selection escalation rule",
     ),
     (
         "Follow Model Selection above for the dispatch `model:` — sonnet default is appropriate for most reviews.",
@@ -570,11 +573,11 @@ patch_file("skills/arc-brainstorm/SKILL.md", [
 patch_file("skills/arc-plan/SKILL.md", [
     (
         "**Model tier:** `issue-manager` defaults to `haiku` — the right tier for CLI formatting and bulk issue creation. For this dispatch, omit `model:`. See the Model Selection table in `../arc-build/SKILL.md` for the full guidance.",
-        "**Model tier:** `issue-manager` defaults to `small` — the right tier for CLI formatting and bulk issue creation. For this dispatch, omit `model:`. See the Model Selection table in `../arc-build/SKILL.md` for the full guidance.",
+        "**Model tier:** `issue-manager` defaults to `nano` — the right tier for low-reasoning CLI formatting and bulk issue creation. For this dispatch, omit `model:`. See the Model Selection table in `../arc-build/SKILL.md` for the full guidance.",
     ),
     (
         "The share keyring entries have `{id, kind, url, key_b64url, plan_file, created_at}` — edit tokens are intentionally redacted. Then dispatch the manifest:\n\n```\nUse the arc_agent tool with agent=\"issue-manager\":\n\nCreate the following epic and tasks.",
-        "The share keyring entries have `{id, kind, url, key_b64url, plan_file, created_at}` — edit tokens are intentionally redacted. Then dispatch the manifest. Prefer true `pi-subagents` so long issue-creation runs are visible in `/subagents-status`:\n\nDispatch preference (use **async** so long-running issue creation appears in `/subagents-status`):\n- Primary: `subagent({ agent: \"arc-issue-manager\", task: \"<manifest below>\", context: \"fresh\", async: true, clarify: false })`\n- After launching async, **wait for terminal status** by polling `subagent({ action: \"status\", id: \"<run-id>\" })` until status is `completed` or `failed`\n- Users can monitor progress via `/subagents-status` during the async run\n- If `subagent` unavailable or `arc-issue-manager` missing: run `/arc-subagents-sync`, then `subagent({ action: \"list\" })` to verify, then retry primary\n- Fallback only if `pi-subagents` is not installed: `arc_agent(agent=\"issue-manager\", task=\"<manifest below>\")`\n\nUse this task payload for whichever dispatcher you choose:\n\n```markdown\nCreate the following epic and tasks.",
+        "The share keyring entries have `{id, kind, url, key_b64url, plan_file, created_at}` — edit tokens are intentionally redacted. Then dispatch the manifest. Prefer true `pi-subagents` so long issue-creation runs are visible in `/subagents-status`:\n\nDispatch preference (use **async** so long-running issue creation appears in `/subagents-status`):\n- Primary: `subagent({ agent: \"arc-issue-manager\", task: \"<manifest below>\", context: \"fresh\", async: true, clarify: false })`\n- After launching async, **wait for terminal status** by polling `subagent({ action: \"status\", id: \"<run-id>\" })` until status is `completed` or `failed`\n- Users can monitor progress via `/subagents-status` during the async run\n- If `subagent({ action: \"list\" })` shows `arc-issue-manager`, do **not** use the slower `arc_agent(agent=\"issue-manager\")` fallback for bulk issue creation\n- If `subagent` unavailable or `arc-issue-manager` missing: run `/arc-subagents-sync`, then `subagent({ action: \"list\" })` to verify, then retry primary\n- Fallback only if `pi-subagents` is not installed or cannot load after sync: `arc_agent(agent=\"issue-manager\", task=\"<manifest below>\")`\n\nUse this task payload for whichever dispatcher you choose:\n\n```markdown\nCreate the following epic and tasks.",
     ),
 ])
 
@@ -605,6 +608,13 @@ for f in sorted((SRC / "agents").glob("*.md")):
     text = re.sub(r"(?m)^model:\s*haiku\s*$", "model: small", text)
     text = re.sub(r"(?m)^model:\s*sonnet\s*$", "model: standard", text)
     text = re.sub(r"(?m)^model:\s*opus\s*$", "model: large", text)
+    if f.name == "issue-manager.md":
+        text = re.sub(r"(?m)^model:\s*small\s*$", "model: nano", text)
+        if "## Timing / Progress Instrumentation" not in text:
+            text = text.replace(
+                "## Creating Epics with Tasks",
+                "## Timing / Progress Instrumentation\n\nFor bulk operations, print lightweight progress lines before and after each phase so the dispatcher can tell whether time is spent in the model or in the Arc CLI. Emit `[arc-issue-manager] phase=<name> status=start|done elapsed_ms=<n>` lines for phases such as `epic`, `child_tasks`, `dependencies`, `labels`, and `verification`, then include a final `## Timing` section in the summary when available.\n\n## Creating Epics with Tasks",
+            )
     (ARC_ROOT / "agents" / f.name).write_text(text)
 
 print(f"Migrated arc plugin resources from {SRC}")

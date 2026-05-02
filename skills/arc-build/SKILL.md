@@ -19,7 +19,8 @@ Every Arc subagent dispatch can override the subagent's frontmatter model via th
 
 | Tier | Default concrete model | Use for |
 |---|---|---|
-| `small` | `openai-codex/gpt-5.4-mini` | Mechanical edits, docs, CLI issue operations |
+| `nano` | `openai-codex/gpt-5.4-nano` | Bulk CLI issue creation and other low-reasoning issue-manager work |
+| `small` | `openai-codex/gpt-5.4-mini` | Mechanical edits and docs |
 | `standard` | `openai-codex/gpt-5.3-codex` | Normal contained implementation/review |
 | `large` | `openai-codex/gpt-5.5` | Cross-cutting, architectural, security-sensitive, or adversarial review |
 
@@ -29,6 +30,7 @@ Users can override the tier map in `~/.pi/agent/settings.json` or project `.pi/s
 {
   "arc": {
     "modelTiers": {
+      "nano": "openai-codex/gpt-5.4-nano",
       "small": "openai-codex/gpt-5.4-mini",
       "standard": "openai-codex/gpt-5.3-codex",
       "large": "openai-codex/gpt-5.5"
@@ -37,7 +39,7 @@ Users can override the tier map in `~/.pi/agent/settings.json` or project `.pi/s
 }
 ```
 
-Legacy aliases still resolve for compatibility: `haiku` → `small`, `sonnet` → `standard`, `opus` → `large`. Prefer the Pi-native tier names in new prompts.
+Legacy aliases still resolve for compatibility: `haiku` → `small`, `sonnet` → `standard`, `opus` → `large`. Prefer the Pi-native tier names in new prompts, including `nano` for low-reasoning issue-manager work.
 
 Prefer the `subagent` tool from `pi-subagents` when it is available **and** Arc agent definitions such as `arc-builder` are installed. If Arc specialist definitions are missing, run `/arc-subagents-sync` (project default) or `/arc-subagents-sync user`, then re-check with `subagent({ action: "list" })`. Otherwise use the bundled `arc_agent` fallback. `arc_agent` is self-contained and sequential only; `pi-subagents` adds chains, async runs, and worktree-isolated parallel patch generation.
 
@@ -45,10 +47,11 @@ Prefer the `subagent` tool from `pi-subagents` when it is available **and** Arc 
 
 | Task signal | Dispatch `model:` |
 |---|---|
+| Bulk issue creation or other low-reasoning Arc CLI operations | `nano` |
 | Mechanical: 1-2 files, spec unambiguous, no cross-cutting concerns | `small` |
 | Standard: integration work, multi-file but contained, unambiguous | omit `model:` (use agent default) or `standard` |
 | Complex: 3+ files, cross-layer, design judgment required, migrations, breaking changes | `large` |
-| Re-dispatch after `BLOCKED` | escalate one tier (`small` → `standard` → `large`); stop at `large` |
+| Re-dispatch after `BLOCKED` | escalate one tier (`nano` → `small` → `standard` → `large`); stop at `large` |
 | Re-dispatch after `NEEDS_CONTEXT` | same tier, richer context |
 
 Examples:
@@ -184,7 +187,7 @@ When the subagent reports back, check its **Status** (one of `DONE | DONE_WITH_C
 **On `BLOCKED` or `NEEDS_CONTEXT`:**
 - Do NOT proceed to review. Do NOT close the task.
 - For `NEEDS_CONTEXT`: gather the requested information, re-dispatch with it.
-- For `BLOCKED`: assess the blocker per the Handle Implementer Status table. Escalate one model tier (`small` → `standard` → `large`) per the Model Selection escalation rule, or invoke the `debug` skill if the blocker is a persistent test failure, or split the task if too large, or escalate to the human.
+- For `BLOCKED`: assess the blocker per the Handle Implementer Status table. Escalate one model tier (`nano` → `small` → `standard` → `large`) per the Model Selection escalation rule, or invoke the `debug` skill if the blocker is a persistent test failure, or split the task if too large, or escalate to the human.
 - After 3 re-dispatches on the same task without clean `DONE`, invoke the `debug` skill.
 
 **If the subagent did not include a Status field** (malformed report):

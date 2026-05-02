@@ -30,6 +30,13 @@ test('arc extension sync map includes all Arc specialists', () => {
   assert.match(source, /existing file is missing the generated marker; preserving user edits/);
 });
 
+test('arc extension model tiers include nano', () => {
+  const source = read('extensions/arc.ts');
+  assert.match(source, /type ArcModelTier = "nano" \| "small" \| "standard" \| "large"/);
+  assert.match(source, /nano: "openai-codex\/gpt-5\.4-nano"/);
+  assert.match(source, /nano for bulk CLI issue creation/);
+});
+
 test('arc extension sync guidance distinguishes agent discovery from status monitoring', () => {
   const source = read('extensions/arc.ts');
   assert.match(source, /subagent\(\{ action: "list" \}\).*confirm the Arc specialists are available/);
@@ -58,6 +65,7 @@ test('arc-plan prefers arc-issue-manager via pi-subagents before arc_agent fallb
   assert.match(source, /async: true/);
   assert.match(source, /clarify: false/);
   assert.match(source, /subagent\(\{ action: "status", id: "<run-id>" \}\)/);
+  assert.match(source, /do \*\*not\*\* use the slower `arc_agent\(agent="issue-manager"\)` fallback/);
   assert.match(source, /arc_agent\(agent="issue-manager"/);
 });
 

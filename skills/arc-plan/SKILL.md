@@ -174,7 +174,7 @@ When identifying tasks, assign **file ownership** — each file should be owned 
 
 ### 4. Create Epic and Tasks via issue-manager
 
-**Model tier:** `issue-manager` defaults to `small` — the right tier for CLI formatting and bulk issue creation. For this dispatch, omit `model:`. See the Model Selection table in `../arc-build/SKILL.md` for the full guidance.
+**Model tier:** `issue-manager` defaults to `nano` — the right tier for low-reasoning CLI formatting and bulk issue creation. For this dispatch, omit `model:`. See the Model Selection table in `../arc-build/SKILL.md` for the full guidance.
 
 **Never run `arc create` directly** — always delegate to the `issue-manager` agent. This keeps bulk CLI output in a disposable subagent context.
 
@@ -203,7 +203,7 @@ Issue creation must be phased:
 3. Capture the complete task-name-to-ID table.
 4. Apply dependencies only after all child IDs exist.
 5. Apply labels after dependencies, or in the same post-creation phase.
-6. Return the final ID table and dependency summary.
+6. Return the final ID table, dependency summary, and a `## Timing` section with phase-level `elapsed_ms` values when available.
 
 Then dispatch the manifest. Prefer true `pi-subagents` so long issue-creation runs are visible in `/subagents-status`:
 
@@ -211,15 +211,16 @@ Dispatch preference (use **async** so long-running issue creation appears in `/s
 - Primary: `subagent({ agent: "arc-issue-manager", task: "<manifest below>", context: "fresh", async: true, clarify: false })`
 - After launching async, **wait for terminal status** by polling `subagent({ action: "status", id: "<run-id>" })` until status is `completed` or `failed`
 - Users can monitor progress via `/subagents-status` during the async run
+- If `subagent({ action: "list" })` shows `arc-issue-manager`, do **not** use the slower `arc_agent(agent="issue-manager")` fallback for bulk issue creation
 - If `subagent` unavailable or `arc-issue-manager` missing: run `/arc-subagents-sync`, then `subagent({ action: "list" })` to verify, then retry primary
-- Fallback only if `pi-subagents` is not installed: `arc_agent(agent="issue-manager", task="<manifest below>")`
+- Fallback only if `pi-subagents` is not installed or cannot load after sync: `arc_agent(agent="issue-manager", task="<manifest below>")`
 
 Use this task payload for whichever dispatcher you choose:
 
 ```markdown
 Create the following epic and tasks.
 After creation, set dependencies and labels as listed.
-Return a summary table mapping task names to arc IDs.
+Return a summary table mapping task names to arc IDs, plus a `## Timing` section with phase-level `elapsed_ms` values when available.
 
 ## Epic
 
