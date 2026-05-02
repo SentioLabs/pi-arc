@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/SentioLabs/pi-arc/compare/v0.6.0...v0.7.0) (2026-05-02)
+
+
+### Features
+
+* **package:** bundle pi-subagents ([11d12fc](https://github.com/SentioLabs/pi-arc/commit/11d12fc92b91c01f81a4309dc205abc7cadab7ea))
+* **package:** bundle pi-subagents and improve parallel Arc workflow ([1753aa0](https://github.com/SentioLabs/pi-arc/commit/1753aa0ab0e200ef9287deefabc2539005956d77))
+
 ## [0.6.0](https://github.com/SentioLabs/pi-arc/compare/v0.5.1...v0.6.0) (2026-05-02)
 
 
