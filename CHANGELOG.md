@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/SentioLabs/pi-arc/compare/v0.4.0...v0.5.0) (2026-05-02)
+
+
+### Features
+
+* sync arc share workflow ([5e62a8d](https://github.com/SentioLabs/pi-arc/commit/5e62a8d93ce57a56185cc26420f6bb39910d81c7))
+
 ## [0.4.0](https://github.com/SentioLabs/pi-arc/compare/v0.3.1...v0.4.0) (2026-05-02)
 
 
