@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/SentioLabs/pi-arc/compare/v0.5.0...v0.5.1) (2026-05-02)
+
+
+### Bug Fixes
+
+* sync arc legacy review guidance ([abf3892](https://github.com/SentioLabs/pi-arc/commit/abf3892b2d28566ef9d8b01d9f4def332b642f9f))
+
 ## [0.5.0](https://github.com/SentioLabs/pi-arc/compare/v0.4.0...v0.5.0) (2026-05-02)
 
 
