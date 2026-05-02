@@ -194,7 +194,18 @@ arc share list --json | jq -r '.[] | select(.id=="<id>") | .plan_file'
 arc plan show <id> | grep -oE '^File: \S+' | awk '{print $2}'
 ```
 
-The share keyring entries have `{id, kind, url, key_b64url, plan_file, created_at}` — edit tokens are intentionally redacted. Then dispatch the manifest. Prefer true `pi-subagents` so long issue-creation runs are visible in `/subagents-status`:
+The share keyring entries have `{id, kind, url, key_b64url, plan_file, created_at}` — edit tokens are intentionally redacted.
+
+Issue creation must be phased:
+
+1. Create the epic first and capture the epic ID.
+2. Create all child tasks with the epic as parent before applying dependencies.
+3. Capture the complete task-name-to-ID table.
+4. Apply dependencies only after all child IDs exist.
+5. Apply labels after dependencies, or in the same post-creation phase.
+6. Return the final ID table and dependency summary.
+
+Then dispatch the manifest. Prefer true `pi-subagents` so long issue-creation runs are visible in `/subagents-status`:
 
 Dispatch preference (use **async** so long-running issue creation appears in `/subagents-status`):
 - Primary: `subagent({ agent: "arc-issue-manager", task: "<manifest below>", context: "fresh", async: true, clarify: false })`
@@ -331,6 +342,35 @@ Run this in a new Pi session:
 Replace `<epic-id>` with the actual epic ID.
 
 **Done for now**: Confirm the epic and tasks are saved in arc. The user can run `/arc-build <epic-id>` whenever they're ready.
+
+## Parallel Readiness
+
+When a design can split into parallel implementation batches, document the readiness proof before handing off tasks.
+
+### T0 Foundation Decision
+
+State whether the design needs a T0 foundation task. If shared contracts, shared constants, or any other multi-task interface are referenced by more than one task, create T0 first and block every dependent parallel batch on it.
+
+### File Ownership Matrix
+
+Do not mark any task parallelizable until this matrix is complete and every file is owned by exactly one task.
+
+| Task | Owns files | Reads files | Overlap handling |
+|---|---|---|---|
+
+### Parallel Batch Manifest
+
+Group only disjoint tasks into parallel batches after file ownership is settled.
+
+| Batch | Prerequisites | Tasks | Independence proof | Validation |
+|---|---|---|---|---|
+
+### Validation Matrix
+
+List the validation command(s) for each batch and the result that proves the batch is ready to hand off.
+
+| Check | Scope | Command | Expected result |
+|---|---|---|---|
 
 ## Task Description Format
 
