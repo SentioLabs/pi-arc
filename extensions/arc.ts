@@ -8,13 +8,11 @@ import { StringEnum } from "@mariozechner/pi-ai";
 import {
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
-  DynamicBorder,
   formatSize,
   truncateTail,
   type ExtensionAPI,
   type ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
-import { Container, type SelectItem, SelectList, Text } from "@mariozechner/pi-tui";
 import { Type } from "typebox";
 
 type ArcCommandResult = {
@@ -74,30 +72,6 @@ function outputOf(result: ArcCommandResult): string {
 }
 
 type ArcAgentName = "builder" | "code-reviewer" | "doc-writer" | "evaluator" | "issue-manager" | "spec-reviewer";
-
-type AskUserQuestionOption = {
-  label: string;
-  description?: string;
-};
-
-type AskUserQuestionDetails = {
-  question: string;
-  options: AskUserQuestionOption[];
-  selected?: AskUserQuestionOption;
-  selectedIndex?: number;
-  cancelled?: boolean;
-};
-
-const AskUserQuestionParameters = Type.Object({
-  question: Type.String({ description: "Question to ask the user." }),
-  options: Type.Array(
-    Type.Object({
-      label: Type.String({ description: "Option label shown in the selector." }),
-      description: Type.Optional(Type.String({ description: "Optional explanation shown under the label." })),
-    }),
-    { description: "Selectable options for the user." },
-  ),
-});
 
 const ARC_AGENT_NAMES = [
   "builder",
@@ -458,124 +432,6 @@ export default function arcExtension(pi: ExtensionAPI) {
     if (ctx.hasUI) ctx.ui.notify(`arc ${args.join(" ")} ${result.code === 0 ? "completed" : "failed"}`, status);
     sendArcMessage(title, `\`arc ${args.join(" ")}\` exited with code ${result.code}.\n\n\`\`\`\n${outputOf(result)}\n\`\`\``);
   }
-
-  pi.registerTool({
-    name: "ask_user_question",
-    label: "Ask User Question",
-    description: "Ask the user a multiple-choice question with an interactive selector.",
-    promptSnippet: "Ask the user a multiple-choice question using an interactive selector.",
-    promptGuidelines: [
-      "Use ask_user_question when an Arc workflow skill asks for a user decision with 2-4 options.",
-      "Prefer ask_user_question over asking the user to type a numbered option manually.",
-      "Use open-ended text questions instead of ask_user_question when the user needs to provide freeform content.",
-    ],
-    parameters: AskUserQuestionParameters as any,
-    async execute(_toolCallId: string, params: any, _signal: AbortSignal | undefined, _onUpdate: any, ctx: ExtensionContext) {
-      const options = params.options as AskUserQuestionOption[];
-      const detailsBase: AskUserQuestionDetails = { question: params.question, options };
-
-      if (options.length === 0) {
-        return {
-          content: [{ type: "text", text: "Error: ask_user_question requires at least one option." }],
-          details: { ...detailsBase, cancelled: true },
-        };
-      }
-
-      if (!ctx.hasUI) {
-        return {
-          content: [
-            {
-              type: "text",
-              text:
-                "UI is not available. Ask the user to choose one of these options manually:\n" +
-                options.map((option, index) => `${index + 1}. ${option.label}`).join("\n"),
-            },
-          ],
-          details: detailsBase,
-        };
-      }
-
-      const items: SelectItem[] = options.map((option, index) => ({
-        value: String(index),
-        label: option.label,
-        description: option.description,
-      }));
-
-      const selectedIndex = await ctx.ui.custom<string | null>((tui, theme, _keybindings, done) => {
-        const container = new Container();
-        container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
-        container.addChild(new Text(theme.fg("accent", theme.bold(params.question)), 1, 0));
-
-        const selectList = new SelectList(items, Math.min(items.length, 10), {
-          selectedPrefix: (s) => theme.fg("accent", s),
-          selectedText: (s) => theme.fg("accent", s),
-          description: (s) => theme.fg("muted", s),
-          scrollInfo: (s) => theme.fg("dim", s),
-          noMatch: (s) => theme.fg("warning", s),
-        });
-        selectList.onSelect = (item) => done(item.value);
-        selectList.onCancel = () => done(null);
-        container.addChild(selectList);
-
-        container.addChild(new Text(theme.fg("dim", "↑↓ navigate • enter select • esc cancel"), 1, 0));
-        container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
-
-        return {
-          render: (width: number) => container.render(width),
-          invalidate: () => container.invalidate(),
-          handleInput: (data: string) => {
-            selectList.handleInput(data);
-            tui.requestRender();
-          },
-        };
-      });
-
-      if (selectedIndex === null) {
-        return {
-          content: [{ type: "text", text: "User cancelled the selection." }],
-          details: { ...detailsBase, cancelled: true },
-        };
-      }
-
-      const selectedIndexNumber = Number(selectedIndex);
-      const selected = options[selectedIndexNumber];
-      if (!selected) {
-        return {
-          content: [{ type: "text", text: "Selection failed: invalid option index." }],
-          details: { ...detailsBase, cancelled: true },
-        };
-      }
-
-      return {
-        content: [{ type: "text", text: `User selected: ${selectedIndexNumber + 1}. ${selected.label}` }],
-        details: {
-          ...detailsBase,
-          selected,
-          selectedIndex: selectedIndexNumber,
-          cancelled: false,
-        },
-      };
-    },
-    renderCall(args: any, theme: any) {
-      const options = Array.isArray(args.options) ? (args.options as AskUserQuestionOption[]) : [];
-      const optionText = options.length > 0 ? `\n${options.map((option, index) => `  ${index + 1}. ${option.label}`).join("\n")}` : "";
-      return new Text(
-        theme.fg("toolTitle", theme.bold("ask_user_question ")) + theme.fg("muted", args.question) + optionText,
-        0,
-        0,
-      );
-    },
-    renderResult(result: any, _options: any, theme: any) {
-      const details = result.details as AskUserQuestionDetails | undefined;
-      if (!details) {
-        const text = result.content[0];
-        return new Text(text?.type === "text" ? text.text : "", 0, 0);
-      }
-      if (details.cancelled) return new Text(theme.fg("warning", "Selection cancelled"), 0, 0);
-      if (!details.selected) return new Text(theme.fg("warning", "No selection"), 0, 0);
-      return new Text(theme.fg("success", "✓ ") + theme.fg("accent", details.selected.label), 0, 0);
-    },
-  } as any);
 
   pi.registerTool({
     name: "arc_agent",
