@@ -11,7 +11,7 @@ Break an approved design into bite-sized, self-contained tasks with exact file p
 
 Design docs live in `docs/plans/<file>.md`. The brainstorm skill registers each doc on one of three review surfaces and writes a routing marker as line 1 of the doc itself:
 
-```
+```html
 <!-- arc-review: kind=<legacy|share-local|share-remote> id=<id> -->
 ```
 
@@ -291,14 +291,31 @@ Fix issues inline. No need to re-review — just fix and move on.
 
 ### 7. Choose Execution Path
 
-**Use the `ask_user_question` tool** to let the user choose:
+**Use the `ask_user_question` tool** with the package's `questions[]` schema to let the user choose:
 
-```
-Question: "Epic and tasks created. How should we proceed with implementation?"
-Options:
-  - "Start implementing now" (invoke /arc-build in this session — subagents handle TDD per task)
-  - "Implement in a new session" (provides the exact prompt to use)
-  - "Done for now" (tasks are tracked in arc — implement manually or later)
+```json
+{
+  "questions": [
+    {
+      "header": "Next",
+      "question": "Epic and tasks created. How should we proceed with implementation?",
+      "options": [
+        {
+          "label": "Start now (Recommended)",
+          "description": "Recommended when you want this session to continue directly into /arc-build with subagents handling TDD per task."
+        },
+        {
+          "label": "New session",
+          "description": "Prints the exact /arc-build <epic-id> command to run in a fresh Pi session."
+        },
+        {
+          "label": "Done for now",
+          "description": "Leaves the tasks tracked in arc for manual or future implementation."
+        }
+      ]
+    }
+  ]
+}
 ```
 
 After the user chooses:
@@ -306,11 +323,10 @@ After the user chooses:
 **Start implementing now**: Invoke the `implement` skill immediately with the epic ID.
 
 **Implement in a new session**: Output the exact command for the user to copy-paste:
-```
+```text
 Run this in a new Pi session:
 
   /arc-build <epic-id>
-
 ```
 Replace `<epic-id>` with the actual epic ID.
 
@@ -322,7 +338,7 @@ Each task's `--description` must be **self-contained** (~3-5k tokens). The task 
 
 Include in every task description:
 
-```
+```markdown
 ## Files
 - Create: `path/to/new_file.go`
 - Modify: `path/to/existing_file.go`
@@ -380,7 +396,7 @@ If a type the subagent needs is not listed in Design Contracts and is not alread
 
 For `docs-only` tasks, omit `## Test Command` and use `## Verification` instead:
 
-```
+```markdown
 ## Verification
 - All internal links resolve to existing files
 - Heading hierarchy has no skipped levels

@@ -26,18 +26,38 @@ Create a task for each step below using the bundled `todo` checklist (via `todo`
 ### 2. Ask Clarifying Questions
 
 - Ask questions **one at a time** — don't dump a list
-- **Use the `ask_user_question` tool** for multiple-choice decisions (2-4 options)
 - Use open-ended text questions only when you need freeform feedback
+- Use the bundled `@juicesharp/rpiv-ask-user-question` `ask_user_question` tool for structured decisions with 2-4 authored options per question.
+- Ask one conceptual decision at a time, but when several related structured decisions are already known, group them in one `ask_user_question` invocation using `questions[]`.
+- Do not manually author package sentinel labels (`Type something.`, `Chat about this`, `Other`, `Next`); the package appends its own escape hatches where supported.
+- Where a recommendation is clear, make it the first option, append `(Recommended)` to the label, and explain why in the description.
 - Understand: purpose, constraints, success criteria, target users
 - Continue until you have enough to propose approaches
 
 **Example `ask_user_question` usage:**
-```
-Question: "How should we handle session persistence?"
-Options:
-  - "In-memory only" (simplest, lost on restart)
-  - "SQLite" (persistent, single-node, matches existing storage)
-  - "Redis" (distributed, adds infrastructure dependency)
+```json
+{
+  "questions": [
+    {
+      "header": "Session",
+      "question": "How should we handle session persistence?",
+      "options": [
+        {
+          "label": "SQLite (Recommended)",
+          "description": "Persistent, single-node, matches existing storage, and avoids new infrastructure."
+        },
+        {
+          "label": "In-memory only",
+          "description": "Simplest option, but sessions are lost on restart."
+        },
+        {
+          "label": "Redis",
+          "description": "Supports distributed deployments, but adds an infrastructure dependency."
+        }
+      ]
+    }
+  ]
+}
 ```
 
 ### 3. Propose 2-3 Approaches
@@ -48,12 +68,29 @@ Options:
 - Apply YAGNI — remove features from all designs that aren't explicitly required
 
 **Example `ask_user_question` usage:**
-```
-Question: "Which approach should we go with?"
-Options:
-  - "Approach A: ..." (recommended — trade-offs...)
-  - "Approach B: ..." (trade-offs...)
-  - "Approach C: ..." (trade-offs...)
+```json
+{
+  "questions": [
+    {
+      "header": "Approach",
+      "question": "Which approach should we go with?",
+      "options": [
+        {
+          "label": "Approach A (Recommended)",
+          "description": "Best balance of scope, risk, and implementation speed for the current constraints."
+        },
+        {
+          "label": "Approach B",
+          "description": "Lower short-term code churn, but leaves more long-term maintenance risk."
+        },
+        {
+          "label": "Approach C",
+          "description": "Most flexible, but likely needs larger-model implementation and more review cycles."
+        }
+      ]
+    }
+  ]
+}
 ```
 
 **Capability-aware hint:** When comparing approaches, surface which imply heavier subagent model tiers during implementation. Approaches with more cross-cutting concerns, more files touched, or tighter coupling between components will likely need `large`-tier dispatches and more review cycles. Approaches that decompose cleanly into single-file, mechanical tasks will run on `small`/`standard` and iterate faster. This is a soft consideration, not a deciding factor — but the user should see it.
@@ -132,21 +169,33 @@ Arc supports three review surfaces. They differ along two axes — *who reviews*
 
 **Use the `ask_user_question` tool:**
 
-```
-Question: "How would you like to review this design?"
-Options:
-  - "Legacy planner (solo, plain HTTP, simplest)" —
-      `arc plan` surface at /planner/<id>. No encryption, no accept-resolve;
-      just a comment thread on a markdown render. Best when you want quick
-      review notes without setting up the share UI.
-  - "Encrypted local share (solo, but want annotations/accept-resolve)" —
-      `arc share` on this machine. Plan content + comments are encrypted at
-      rest in ~/.arc/data.db. Reviewer URL only works from this machine.
-  - "Encrypted remote share (multiple reviewers)" —
-      `arc share` on the configured remote server (default arcplanner.sentiolabs.io).
-      Reviewers on other machines can open the link.
-  - "Save for later" — write the file to docs/plans/ and stop. No server
-      registration; resume in a new session.
+```json
+{
+  "questions": [
+    {
+      "header": "Review",
+      "question": "How would you like to review this design?",
+      "options": [
+        {
+          "label": "Legacy planner",
+          "description": "Solo plain-HTTP review at /planner/<id>; simplest, with no encryption or accept/resolve UI."
+        },
+        {
+          "label": "Encrypted local",
+          "description": "Solo encrypted review with annotations and accept/resolve UI on this machine only."
+        },
+        {
+          "label": "Encrypted remote",
+          "description": "Multiple reviewers can open the remote encrypted share; the author URL must stay private."
+        },
+        {
+          "label": "Save for later",
+          "description": "Write the design file to docs/plans and skip server registration for now."
+        }
+      ]
+    }
+  ]
+}
 ```
 
 Route on the answer:
@@ -197,13 +246,29 @@ The encrypted-share CLI persists the edit_token + key into the local arc keyring
 
 Print the URL from step 6 again as a reminder. **Use the `ask_user_question` tool:**
 
-```
-Question: "Plan ready for review at <url> — how would you like to proceed?"
-Options:
-  - "Approve" — mark the design approved and proceed to /arc-plan
-  - "I've finished review (pull comments now)" — fetch reviewer feedback,
-      apply edits, re-share if needed, repeat
-  - "Save for later" — design is saved; resume in a new session
+```json
+{
+  "questions": [
+    {
+      "header": "Review",
+      "question": "Plan ready for review at <url> — how would you like to proceed?",
+      "options": [
+        {
+          "label": "Approve",
+          "description": "Mark the design approved and continue to routing analysis."
+        },
+        {
+          "label": "Pull comments",
+          "description": "Fetch reviewer feedback, apply accepted changes, update the review surface, and repeat review."
+        },
+        {
+          "label": "Save for later",
+          "description": "Leave the design saved in docs/plans and resume in a future session."
+        }
+      ]
+    }
+  ]
+}
 ```
 
 Branch the CLI by the marker's `kind`:
@@ -246,7 +311,7 @@ Evaluate the approved design against these criteria and present a summary:
 
 Then produce a **recommendation** with reasoning:
 
-```
+```text
 📊 Routing Analysis
 ───────────────────
 Work items:       N tasks identified
@@ -266,12 +331,29 @@ Scale:            Small / Medium / Large
 - When borderline, recommend `arc:plan` — the overhead of planning is low, but the cost of a disorganized multi-task implementation is high
 
 After the analysis, use the **`ask_user_question` tool** — mark the recommended option:
-```
-Question: "Design approved! What's next?"
-Options:
-  - "Break into tasks with /arc-plan" (recommended — <brief reason from analysis>)
-  - "Implement directly with /arc-build" (for small, single-task work)
-  - "Done for now" (design is saved — continue in a new session)
+```json
+{
+  "questions": [
+    {
+      "header": "Next",
+      "question": "Design approved! What's next?",
+      "options": [
+        {
+          "label": "Break into tasks (Recommended)",
+          "description": "Recommended when the design has multiple work items, shared contracts, multiple layers, migrations, breaking changes, or medium/large scale."
+        },
+        {
+          "label": "Implement directly",
+          "description": "Use only for small designs with one work item, one layer, no shared contracts, and no risk areas."
+        },
+        {
+          "label": "Done for now",
+          "description": "The design is approved and saved; continue with /arc-plan in a future session."
+        }
+      ]
+    }
+  ]
+}
 ```
 
 If `/arc-build` is recommended instead, swap which option gets the "(recommended)" tag.
