@@ -121,8 +121,18 @@ def transform_text(text: str) -> str:
     text = re.sub(r"TaskCreate/TaskUpdate", "the bundled `todo` checklist", text, flags=re.IGNORECASE)
     text = re.sub(r"TaskCreate", "the bundled `todo` checklist", text, flags=re.IGNORECASE)
     text = re.sub(r"TodoWrite", "the bundled `todo` checklist", text, flags=re.IGNORECASE)
+    # Ask-user-question migration: Pi uses the bundled @juicesharp package and
+    # its questions[] schema rather than an Arc-owned custom selector shape.
     text = text.replace("AskUserQuestion tool", "`ask_user_question` tool")
     text = text.replace("AskUserQuestion", "`ask_user_question`")
+    text = text.replace(
+        "- **Use the `ask_user_question` tool** for multiple-choice decisions (2-4 options)",
+        "- **Use the bundled `@juicesharp/rpiv-ask-user-question` `ask_user_question` tool** for structured decisions using the package `questions[]` schema",
+    )
+    text = text.replace(
+        "**Use the `ask_user_question` tool:**",
+        "**Use the bundled `@juicesharp/rpiv-ask-user-question` `ask_user_question` tool with the package `questions[]` schema:**",
+    )
 
     # Subagent migration.
     text = text.replace("Use the Agent tool with subagent_type=\"arc:issue-manager\":", "Use the arc_agent tool with agent=\"issue-manager\":")

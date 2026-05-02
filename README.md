@@ -38,9 +38,12 @@ This package is a Pi-native port of the Claude Code Arc plugin at https://github
   - `todo` tool for managing in-session checklist items.
   - `/todos` command for a quick checklist view/workflow.
   - Persistent overlay widget for visible, session-level task progress.
-- **`ask_user_question` tool**:
-  - Presents Arc workflow decisions in a rich Pi selector UI so users can move with arrow keys and press Enter instead of typing numbered answers.
-  - Falls back to manual numbered options when Pi is running without an interactive UI.
+- **Bundled `@juicesharp/rpiv-ask-user-question` integration** (auto-installed + auto-loaded):
+  - Provides the `ask_user_question` tool for Arc workflow decisions using the package `questions[]` schema.
+  - Supports multi-question dialogs, single-select and multi-select questions, optional per-option previews, and per-option notes.
+  - Preserves package-provided escape hatches where supported, including `Type something.` for custom text and `Chat about this` for returning to free-form conversation.
+  - Arc docs should not manually author reserved sentinel labels such as `Type something.`, `Chat about this`, `Other`, or `Next` as normal options.
+  - When Arc recommends an option, list it first, append `(Recommended)` to the label, and explain why in the description.
 - **`arc_agent` tool**:
   - Runs bundled Arc specialist prompts from `agents/*.md` in fresh Pi subprocesses.
   - Supports `builder`, `code-reviewer`, `doc-writer`, `evaluator`, `issue-manager`, and `spec-reviewer`.
@@ -239,7 +242,7 @@ Implemented:
 - Arc context extension (`arc prime` cache + system prompt injection)
 - Workflow command aliases
 - Bundled agent prompt references under `agents/`
-- Pi-native `ask_user_question` custom tool for interactive workflow decisions
+- Bundled `@juicesharp/rpiv-ask-user-question` package for interactive workflow decisions
 - Pi-native `arc_agent` custom tool for sequential subagent execution
 - `/arc-subagents-sync` command for generating Arc specialist `pi-subagents` definitions
 - Optional guidance for using `pi-subagents` for worktree-isolated evaluator runs and independent parallel builder batches

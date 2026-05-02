@@ -105,7 +105,7 @@ Pi behavior to preserve:
 
 - Hyphenated prompt names like `/arc-create`, not colon-form Arc command names.
 - Collision-safe skill names like `arc-build`, not bare `build`.
-- `ask_user_question`, not the CamelCase Claude tool name.
+- Bundled `@juicesharp/rpiv-ask-user-question` provides `ask_user_question`; preserve the snake_case tool name, the package `questions[]` schema, package-provided `Type something.` / `Chat about this` escape-hatch guidance, and `(Recommended)` option convention.
 - Bundled `todo` checklist guidance, not Claude checklist/task tool names.
 - `arc_agent` fallback semantics plus preferred Arc `pi-subagents` definitions when available.
 - No Claude-style team deployment unless a Pi-native implementation exists.
