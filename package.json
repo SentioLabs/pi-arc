@@ -44,10 +44,12 @@
     "access": "public"
   },
   "dependencies": {
+    "@juicesharp/rpiv-ask-user-question": "^1.0.14",
     "@juicesharp/rpiv-todo": "^0.12.5"
   },
   "bundledDependencies": [
-    "@juicesharp/rpiv-todo"
+    "@juicesharp/rpiv-todo",
+    "@juicesharp/rpiv-ask-user-question"
   ],
   "peerDependencies": {
     "@mariozechner/pi-ai": "*",
@@ -78,7 +80,12 @@
     ],
     "extensions": [
       "./extensions/*.ts",
-      "./node_modules/@juicesharp/rpiv-todo/index.ts"
+      "./node_modules/@juicesharp/rpiv-todo/index.ts",
+      "./node_modules/@juicesharp/rpiv-ask-user-question/index.ts"
     ]
-  }
+  },
+  "bundleDependencies": [
+    "@juicesharp/rpiv-todo",
+    "@juicesharp/rpiv-ask-user-question"
+  ]
 }
