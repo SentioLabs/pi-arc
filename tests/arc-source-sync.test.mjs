@@ -1,0 +1,50 @@
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+function read(path) {
+  return readFileSync(path, 'utf8');
+}
+
+test('migration script documents configurable source path', () => {
+  const help = execFileSync('python3', ['scripts/migrate-arc-plugin.py', '--help'], { encoding: 'utf8' });
+  assert.match(help, /\[--source SOURCE\]/);
+  assert.match(help, /\[source\]/);
+  assert.match(help, /Claude Arc plugin source/);
+});
+
+test('migration script validates source before rewriting resources', () => {
+  const source = read('scripts/migrate-arc-plugin.py');
+  assert.match(source, /import argparse/);
+  assert.match(source, /expanduser\(\)\.resolve\(\)/);
+  assert.match(source, /def validate_source/);
+  assert.match(source, /"commands"/);
+  assert.match(source, /"skills"/);
+  assert.match(source, /"agents"/);
+  assert.match(source, /"\.claude-plugin\/plugin\.json"/);
+});
+
+test('arc-source-sync skill exists and is maintainer-only', () => {
+  const source = read('skills/arc-source-sync/SKILL.md');
+  assert.match(source, /name: arc-source-sync/);
+  assert.match(source, /maintainer-only/i);
+  assert.match(source, /Never blindly copy/);
+  assert.match(source, /python3 scripts\/migrate-arc-plugin\.py "\$SOURCE"/);
+  assert.match(source, /Release Please-managed/);
+});
+
+test('arc extension registers arc-source-sync slash alias', () => {
+  const source = read('extensions/arc.ts');
+  assert.match(source, /command: "arc-source-sync"/);
+  assert.match(source, /skill: "arc-source-sync"/);
+  assert.match(source, /Maintainer-only: sync pi-arc resources/);
+  assert.match(source, /pi\.sendUserMessage\(`\/skill:\$\{skill\}\$\{args\.trim\(\)/);
+});
+
+test('README documents maintainer-only source sync', () => {
+  const source = read('README.md');
+  assert.match(source, /Maintainer source sync/);
+  assert.match(source, /maintainer-only `\/arc-source-sync` skill\/command/);
+  assert.match(source, /python3 scripts\/migrate-arc-plugin\.py --source ~\/foo\/bar\/arc/);
+});

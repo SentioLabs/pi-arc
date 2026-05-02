@@ -1,14 +1,60 @@
 #!/usr/bin/env python3
+import argparse
 from pathlib import Path
 import shutil
 import re
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ARC_ROOT = REPO_ROOT
-SRC = (REPO_ROOT / "../agent-nexus/claude-marketplace/plugins/arc").resolve()
+DEFAULT_SRC = (REPO_ROOT / "../agent-nexus/claude-marketplace/plugins/arc").resolve()
 
-if not SRC.exists():
-    raise SystemExit(f"Source plugin not found: {SRC}")
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Regenerate pi-arc resources from the Claude Arc plugin source.",
+    )
+    parser.add_argument(
+        "source",
+        nargs="?",
+        help=f"Path to the Claude Arc plugin source directory. Defaults to {DEFAULT_SRC}.",
+    )
+    parser.add_argument(
+        "--source",
+        dest="source_option",
+        metavar="SOURCE",
+        help="Path to the Claude Arc plugin source directory (option form).",
+    )
+    return parser.parse_args()
+
+
+def resolve_source_path(args: argparse.Namespace) -> Path:
+    if args.source and args.source_option:
+        raise SystemExit("Pass the source path either positionally or with --source, not both.")
+    raw_source = args.source_option or args.source
+    if raw_source:
+        return Path(raw_source).expanduser().resolve()
+    return DEFAULT_SRC
+
+
+def validate_source(src: Path) -> None:
+    expected_paths = [
+        "commands",
+        "skills",
+        "agents",
+        ".claude-plugin/plugin.json",
+    ]
+    missing = [rel for rel in expected_paths if not (src / rel).exists()]
+    if missing:
+        missing_text = "\n".join(f"- {rel}" for rel in missing)
+        raise SystemExit(
+            f"Source plugin does not look like the Claude Arc plugin: {src}\n"
+            f"Missing expected paths:\n{missing_text}"
+        )
+
+
+ARGS = parse_args()
+SRC = resolve_source_path(ARGS)
+validate_source(SRC)
 
 ARC_ROOT.mkdir(parents=True, exist_ok=True)
 
