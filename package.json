@@ -45,11 +45,13 @@
   },
   "dependencies": {
     "@juicesharp/rpiv-ask-user-question": "^1.0.14",
-    "@juicesharp/rpiv-todo": "^0.12.5"
+    "@juicesharp/rpiv-todo": "^0.12.5",
+    "pi-subagents": "^0.23.0"
   },
   "bundledDependencies": [
     "@juicesharp/rpiv-todo",
-    "@juicesharp/rpiv-ask-user-question"
+    "@juicesharp/rpiv-ask-user-question",
+    "pi-subagents"
   ],
   "peerDependencies": {
     "@mariozechner/pi-ai": "*",
@@ -73,15 +75,18 @@
   },
   "pi": {
     "skills": [
-      "./skills"
+      "./skills",
+      "./node_modules/pi-subagents/skills"
     ],
     "prompts": [
-      "./prompts/*.md"
+      "./prompts/*.md",
+      "./node_modules/pi-subagents/prompts"
     ],
     "extensions": [
       "./extensions/*.ts",
       "./node_modules/@juicesharp/rpiv-todo/index.ts",
-      "./node_modules/@juicesharp/rpiv-ask-user-question/index.ts"
+      "./node_modules/@juicesharp/rpiv-ask-user-question/index.ts",
+      "./node_modules/pi-subagents/src/extension/index.ts"
     ]
   }
 }
