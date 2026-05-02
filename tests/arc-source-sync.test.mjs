@@ -42,6 +42,17 @@ test('migration script preserves Pi-only skills and excludes upstream eval fixtu
   assert.equal(existsSync('skills/arc-plan/evals'), false);
 });
 
+test('migration script rewrites renamed skill path references', () => {
+  const source = read('scripts/migrate-arc-plugin.py');
+  assert.match(source, /skills\/brainstorm\/SKILL\.md", "skills\/arc-brainstorm\/SKILL\.md/);
+  assert.match(source, /skills\/plan\/SKILL\.md", "skills\/arc-plan\/SKILL\.md/);
+
+  const arcSkill = read('skills/arc/SKILL.md');
+  assert.match(arcSkill, /skills\/arc-brainstorm\/SKILL\.md/);
+  assert.match(arcSkill, /skills\/arc-plan\/SKILL\.md/);
+  assert.doesNotMatch(arcSkill, /skills\/(brainstorm|plan)\/SKILL\.md/);
+});
+
 test('arc extension registers arc-source-sync slash alias', () => {
   const source = read('extensions/arc.ts');
   assert.match(source, /command: "arc-source-sync"/);

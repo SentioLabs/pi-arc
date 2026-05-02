@@ -139,6 +139,8 @@ def transform_text(text: str) -> str:
     # Relative paths after skill directory renames.
     text = text.replace("../build/", "../arc-build/")
     text = text.replace("../review/", "../arc-review/")
+    text = text.replace("skills/brainstorm/SKILL.md", "skills/arc-brainstorm/SKILL.md")
+    text = text.replace("skills/plan/SKILL.md", "skills/arc-plan/SKILL.md")
     return text
 
 for src_dir in sorted((SRC / "skills").iterdir()):
