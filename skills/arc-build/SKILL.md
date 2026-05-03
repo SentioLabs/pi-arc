@@ -101,6 +101,8 @@ Tasks are dispatched one at a time through the orchestration loop below. Use thi
 
 Taskplane is an optional execution backend for large or longer-running Arc batches where dashboard visibility, resume support, supervisor control, or an orch-branch merge flow are worth the heavier orchestration lane. Do not use Taskplane for ordinary small/medium independent patch batches; keep `pi-subagents` as the default Arc backend for those.
 
+This is an `ask_user_question opt-in` lane: Taskplane only runs after the user explicitly chooses it for a large/resumable batch.
+
 When the batch meets the large/resumable threshold, ask the user before switching backends. Use `ask_user_question` with these options:
 
 ```json
