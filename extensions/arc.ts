@@ -14,6 +14,16 @@ import {
   type ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
 import { Type } from "typebox";
+import {
+  type ArcModelProfileKey,
+  applyArcThinkingSuffix,
+  loadArcModelsConfig,
+  resolveArcModelProfile,
+  resolveArcModelsConfigPath,
+  saveArcModelsConfig,
+  toArcModelInfo,
+} from "./arc/model-profiles.ts";
+import { openArcModelProfilesEditor } from "./arc/model-profiles-ui.ts";
 
 type ArcCommandResult = {
   code: number | null;
@@ -81,6 +91,15 @@ const ARC_AGENT_NAMES = [
   "issue-manager",
   "spec-reviewer",
 ] as const;
+
+const ARC_AGENT_PROFILE_KEYS: Record<ArcAgentName, ArcModelProfileKey> = {
+  builder: "builder",
+  "code-reviewer": "codeReviewer",
+  "doc-writer": "docWriter",
+  evaluator: "evaluator",
+  "issue-manager": "issueManager",
+  "spec-reviewer": "specReviewer",
+};
 
 const ARC_PI_SUBAGENTS = [
   { source: "builder", target: "arc-builder" },
@@ -217,6 +236,288 @@ async function modelPattern(model: string | undefined, cwd: string): Promise<str
 
   const tiers = await loadArcModelTiers(cwd);
   return tiers[tier];
+}
+
+type ArcAvailableModel = Parameters<typeof toArcModelInfo>[0];
+type ArcModelInfo = ReturnType<typeof toArcModelInfo>;
+type ArcModelsConfig = Awaited<ReturnType<typeof loadArcModelsConfig>>;
+type ArcModelSource = ReturnType<typeof resolveArcModelProfile>["source"];
+
+type ArcModelForAgentResolution = {
+  profileKey: ArcModelProfileKey;
+  model?: string;
+  modelSource: ArcModelSource;
+  warning?: string;
+  unavailableModel?: string;
+};
+
+const ARC_RECOMMENDED_PROFILE_KEYS: ArcModelProfileKey[] = [
+  "brainstorm",
+  "plan",
+  "issueManager",
+  "builder",
+  "codeReviewer",
+  "docWriter",
+  "specReviewer",
+  "evaluator",
+];
+
+const ARC_PROFILE_RECOMMENDATION_TERMS: Record<ArcModelProfileKey, string[]> = {
+  brainstorm: ["large", "opus", "gpt-5.5", "sonnet", "gpt-5"],
+  plan: ["standard", "codex", "sonnet", "gpt-5.3", "gpt-5"],
+  issueManager: ["nano", "haiku", "mini", "small"],
+  builder: ["codex", "standard", "sonnet", "gpt-5.3", "gpt-5"],
+  codeReviewer: ["codex", "standard", "sonnet", "gpt-5.3", "gpt-5"],
+  docWriter: ["small", "mini", "haiku", "nano"],
+  specReviewer: ["standard", "codex", "sonnet", "gpt-5.3", "gpt-5"],
+  evaluator: ["small", "mini", "haiku", "standard"],
+};
+
+type BrainstormProfilePromptAction = "recommended" | "customize" | "skip" | "reconfigure" | "fallback" | "disable" | "cancel";
+
+type BrainstormProfilePromptOption = {
+  label: string;
+  description: string;
+  action: BrainstormProfilePromptAction;
+};
+
+function sortArcModelsForProvider(models: ArcModelInfo[], preferredProvider?: string): ArcModelInfo[] {
+  const provider = preferredProvider?.trim();
+  if (!provider) return [...models];
+  return [...models].sort((a, b) => Number(b.provider === provider) - Number(a.provider === provider));
+}
+
+function recommendedArcModelForProfile(
+  profileKey: ArcModelProfileKey,
+  models: ArcModelInfo[],
+  preferredProvider?: string,
+): ArcModelInfo | undefined {
+  const candidates = sortArcModelsForProvider(models, preferredProvider);
+  if (candidates.length === 0) return undefined;
+
+  for (const term of ARC_PROFILE_RECOMMENDATION_TERMS[profileKey]) {
+    const normalizedTerm = term.toLowerCase();
+    const matched = candidates.find((model) => model.fullId.toLowerCase().includes(normalizedTerm));
+    if (matched) return matched;
+  }
+
+  return candidates[0];
+}
+
+function applyRecommendedArcModelProfiles(config: ArcModelsConfig, models: ArcModelInfo[], preferredProvider?: string): ArcModelsConfig {
+  for (const profileKey of ARC_RECOMMENDED_PROFILE_KEYS) {
+    const recommended = recommendedArcModelForProfile(profileKey, models, preferredProvider);
+    if (!recommended) continue;
+    config.modelProfiles[profileKey] = {
+      ...config.modelProfiles[profileKey],
+      model: recommended.fullId,
+      thinking: "off",
+    };
+  }
+  config.setup = { ...config.setup, completedAt: new Date().toISOString(), dismissedAt: null };
+  return config;
+}
+
+function selectedPromptAction(options: BrainstormProfilePromptOption[], cursor: number): BrainstormProfilePromptAction {
+  return options[cursor]?.action ?? "cancel";
+}
+
+function renderBrainstormProfilePrompt(
+  title: string,
+  message: string,
+  options: BrainstormProfilePromptOption[],
+  cursor: number,
+): string[] {
+  const lines = [title, "", message, ""];
+  for (let index = 0; index < options.length; index++) {
+    const option = options[index]!;
+    const prefix = index === cursor ? "›" : " ";
+    lines.push(`${prefix} ${index + 1}. ${option.label}`);
+    lines.push(`   ${option.description}`);
+  }
+  lines.push("", "Enter selects · 1-3 selects directly · Esc cancels");
+  return lines;
+}
+
+async function promptBrainstormProfileSetup(
+  ctx: ExtensionContext,
+  title: string,
+  message: string,
+  options: BrainstormProfilePromptOption[],
+): Promise<BrainstormProfilePromptAction> {
+  return ctx.ui.custom<BrainstormProfilePromptAction>(
+    (tui, _theme, _kb, done) => {
+      let cursor = 0;
+      return {
+        handleInput(data: string): void {
+          if (data === "\u0003" || data === "\u001b") {
+            done("cancel");
+            return;
+          }
+          if (data === "\r" || data === "\n") {
+            done(selectedPromptAction(options, cursor));
+            return;
+          }
+          if (data === "\u001b[A" || data === "k") {
+            cursor = cursor === 0 ? options.length - 1 : cursor - 1;
+            tui.requestRender();
+            return;
+          }
+          if (data === "\u001b[B" || data === "j") {
+            cursor = cursor === options.length - 1 ? 0 : cursor + 1;
+            tui.requestRender();
+            return;
+          }
+
+          const numeric = Number(data);
+          if (Number.isInteger(numeric) && numeric >= 1 && numeric <= options.length) {
+            done(selectedPromptAction(options, numeric - 1));
+          }
+        },
+        render(): string[] {
+          return renderBrainstormProfilePrompt(title, message, options, cursor);
+        },
+      };
+    },
+    { overlay: true, overlayOptions: { anchor: "center", width: 72, maxHeight: "80%" } },
+  );
+}
+
+async function openAndMaybeSaveArcModelProfiles(
+  ctx: ExtensionContext,
+  config: ArcModelsConfig,
+  configPath: string,
+  preferredProvider: string | undefined,
+  markSetupComplete: boolean,
+): Promise<boolean> {
+  const result = await openArcModelProfilesEditor(ctx, { config, configPath, preferredProvider });
+  if (result.action !== "save" || !result.config) return false;
+  if (markSetupComplete) {
+    result.config.setup = { ...result.config.setup, completedAt: new Date().toISOString(), dismissedAt: null };
+  }
+  await saveArcModelsConfig(result.config, configPath);
+  if (ctx.hasUI) ctx.ui.notify("Arc model profiles saved", "info");
+  return true;
+}
+
+async function resolveArcModelForAgent(
+  agent: ArcAgentName,
+  explicitModel: string | undefined,
+  frontmatterModel: string | undefined,
+  cwd: string,
+  availableModels: ArcAvailableModel[],
+  preferredProvider?: string,
+): Promise<ArcModelForAgentResolution> {
+  const profileKey = ARC_AGENT_PROFILE_KEYS[agent];
+  const config = await loadArcModelsConfig();
+  const explicitPattern = await modelPattern(explicitModel, cwd);
+  const tierModel = await modelPattern(frontmatterModel, cwd);
+  const resolution = resolveArcModelProfile({
+    profileKey,
+    explicitModel: explicitPattern,
+    config,
+    availableModels: availableModels.map(toArcModelInfo),
+    tierModel,
+    preferredProvider,
+  });
+
+  return {
+    profileKey,
+    model: applyArcThinkingSuffix(resolution.model, resolution.thinking),
+    modelSource: resolution.source,
+    warning: resolution.warning,
+    unavailableModel: resolution.unavailableModel,
+  };
+}
+
+async function maybeEnsureBrainstormProfileReady(ctx: ExtensionContext, _args?: string): Promise<boolean> {
+  if (!ctx.hasUI) return true;
+
+  const preferredProvider = ctx.model?.provider;
+  const configPath = resolveArcModelsConfigPath();
+  const config = await loadArcModelsConfig(configPath);
+  const availableModels = ctx.modelRegistry.getAvailable().map(toArcModelInfo);
+  const brainstormResolution = resolveArcModelProfile({
+    profileKey: "brainstorm",
+    config,
+    availableModels,
+    preferredProvider,
+  });
+
+  if (brainstormResolution.unavailableModel && config.modelProfiles.brainstorm?.model) {
+    const action = await promptBrainstormProfileSetup(
+      ctx,
+      "Arc brainstorm model unavailable",
+      brainstormResolution.warning ?? "Configured brainstorm model is unavailable.",
+      [
+        {
+          label: "Reconfigure now",
+          description: "Open /arc-models and continue only after saving an available brainstorm profile.",
+          action: "reconfigure",
+        },
+        {
+          label: "Use fallback once",
+          description: "Continue this brainstorm without changing model profile configuration.",
+          action: "fallback",
+        },
+        {
+          label: "Disable profile",
+          description: "Remove the brainstorm profile, save, and continue with fallback behavior.",
+          action: "disable",
+        },
+      ],
+    );
+
+    if (action === "reconfigure") return openAndMaybeSaveArcModelProfiles(ctx, config, configPath, preferredProvider, true);
+    if (action === "fallback") return true;
+    if (action === "disable") {
+      delete config.modelProfiles.brainstorm;
+      await saveArcModelsConfig(config, configPath);
+      if (ctx.hasUI) ctx.ui.notify("Arc model profiles saved", "info");
+      return true;
+    }
+    return false;
+  }
+
+  if (config.setup?.completedAt || config.setup?.dismissedAt) return true;
+
+  const action = await promptBrainstormProfileSetup(
+    ctx,
+    "Set up Arc model profiles",
+    "Configure focused model profiles before using /arc-brainstorm, or continue with legacy fallback behavior.",
+    [
+      {
+        label: "Use recommended defaults",
+        description: "Save available recommended models for Arc profiles and continue.",
+        action: "recommended",
+      },
+      {
+        label: "Customize",
+        description: "Open /arc-models and continue only after saving your choices.",
+        action: "customize",
+      },
+      {
+        label: "Skip for now",
+        description: "Dismiss setup and continue with fallback behavior.",
+        action: "skip",
+      },
+    ],
+  );
+
+  if (action === "recommended") {
+    applyRecommendedArcModelProfiles(config, availableModels, preferredProvider);
+    await saveArcModelsConfig(config, configPath);
+    if (ctx.hasUI) ctx.ui.notify("Arc model profiles saved", "info");
+    return true;
+  }
+  if (action === "customize") return openAndMaybeSaveArcModelProfiles(ctx, config, configPath, preferredProvider, true);
+  if (action === "skip") {
+    config.setup = { ...config.setup, dismissedAt: new Date().toISOString() };
+    await saveArcModelsConfig(config, configPath);
+    return true;
+  }
+
+  return false;
 }
 
 function runPiSubprocess(args: string[], cwd: string, signal?: AbortSignal): Promise<ArcCommandResult> {
@@ -463,7 +764,15 @@ export default function arcExtension(pi: ExtensionAPI) {
       const markdown = await readFile(agentPath, "utf8");
       const config = parseAgentMarkdown(markdown);
       const requestedModel = params.model ?? config.model;
-      const selectedModel = await modelPattern(requestedModel, ctx.cwd);
+      const modelResolution = await resolveArcModelForAgent(
+        agent,
+        params.model,
+        config.model,
+        ctx.cwd,
+        ctx.modelRegistry.getAvailable(),
+        ctx.model?.provider,
+      );
+      const selectedModel = modelResolution.model;
       const selectedTools = config.tools?.map((tool) => tool.toLowerCase()).join(",");
 
       const args = ["-p", "--no-session", "--system-prompt", config.prompt];
@@ -478,7 +787,15 @@ export default function arcExtension(pi: ExtensionAPI) {
             text: `Running arc_agent ${agent}${selectedModel ? ` with model ${selectedModel}` : ""}...`,
           },
         ],
-        details: { agent, requestedModel, model: selectedModel, tools: selectedTools },
+        details: {
+          agent,
+          requestedModel,
+          profileKey: modelResolution.profileKey,
+          modelSource: modelResolution.modelSource,
+          warning: modelResolution.warning,
+          model: selectedModel,
+          tools: selectedTools,
+        },
       });
 
       const result = await runPiSubprocess(args, ctx.cwd, signal);
@@ -494,6 +811,9 @@ export default function arcExtension(pi: ExtensionAPI) {
         details: {
           agent,
           requestedModel,
+          profileKey: modelResolution.profileKey,
+          modelSource: modelResolution.modelSource,
+          warning: modelResolution.warning,
           model: selectedModel,
           tools: selectedTools,
           exitCode: result.code,
@@ -607,7 +927,15 @@ export default function arcExtension(pi: ExtensionAPI) {
         try {
           const sourceMarkdown = await readFile(sourcePath, "utf8");
           const parsedSource = parseAgentMarkdown(sourceMarkdown);
-          const resolvedModel = await modelPattern(parsedSource.model, ctx.cwd);
+          const modelResolution = await resolveArcModelForAgent(
+            source,
+            undefined,
+            parsedSource.model,
+            ctx.cwd,
+            ctx.modelRegistry.getAvailable(),
+            ctx.model?.provider,
+          );
+          const resolvedModel = modelResolution.model ?? (await modelPattern(parsedSource.model, ctx.cwd));
           const output = buildArcSubagentMarkdown(target, source, sourceMarkdown, parsedSource, resolvedModel);
 
           let existing: string | undefined;
@@ -653,10 +981,20 @@ export default function arcExtension(pi: ExtensionAPI) {
     },
   });
 
+  pi.registerCommand("arc-models", {
+    description: "Configure Arc model profiles",
+    handler: async (_args, ctx) => {
+      const configPath = resolveArcModelsConfigPath();
+      const config = await loadArcModelsConfig(configPath);
+      await openAndMaybeSaveArcModelProfiles(ctx, config, configPath, ctx.model?.provider, false);
+    },
+  });
+
   for (const { command, skill, description } of WORKFLOW_SKILLS) {
     pi.registerCommand(command, {
       description,
-      handler: async (args) => {
+      handler: async (args, ctx) => {
+        if (command === "arc-brainstorm" && !(await maybeEnsureBrainstormProfileReady(ctx, args))) return;
         pi.sendUserMessage(`/skill:${skill}${args.trim() ? ` ${args.trim()}` : ""}`);
       },
     });
