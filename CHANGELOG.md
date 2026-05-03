@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.8.0](https://github.com/SentioLabs/pi-arc/compare/v0.7.1...v0.8.0) (2026-05-03)
+
+
+### Features
+
+* **arc:** add model profile contracts ([75cf2c3](https://github.com/SentioLabs/pi-arc/commit/75cf2c377f2e3ff8e51b3226d31567a25bd82830))
+* **arc:** add model profile editor UI ([bf3c6eb](https://github.com/SentioLabs/pi-arc/commit/bf3c6ebc8784af7db74c45ee3d548ee6cdb7505e))
+* **arc:** wire model profiles into extension ([ac9db2f](https://github.com/SentioLabs/pi-arc/commit/ac9db2ff10d95fd93ddb7b9ebe60a66f8d6ad509))
+
+
+### Bug Fixes
+
+* **arc:** tighten model profile UI contract ([628eaad](https://github.com/SentioLabs/pi-arc/commit/628eaad310548edb7f85c65e17b358f0a8b70c6c))
+
 ## [0.7.1](https://github.com/SentioLabs/pi-arc/compare/v0.7.0...v0.7.1) (2026-05-02)
 
 
