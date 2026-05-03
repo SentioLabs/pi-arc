@@ -56,6 +56,7 @@ test('arc extension wires model profiles into commands and agent dispatch', () =
     'profileKey',
     'modelPattern',
     'buildArcSubagentMarkdown',
+    'materializeArcSubagentsForContext',
   ]) {
     assert.match(source, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
@@ -76,6 +77,13 @@ test('arc extension recommended profile defaults use exact allowed models and th
   assert.ok(recommendedIds.length > 0, 'expected recommendation model IDs');
   assert.ok(recommendedIds.every((id) => ALLOWED_RECOMMENDED_MODEL_IDS.has(id)), `unexpected IDs: ${recommendedIds.join(', ')}`);
   assert.doesNotMatch(block, /gpt-5\.1|gpt-5\.4-(?!mini\b)[a-z0-9-]+|claude|haiku|opus|sonnet/i);
+});
+
+test('arc-models save refreshes generated Arc subagents', () => {
+  const source = read('extensions/arc.ts');
+  assert.match(source, /openAndMaybeSaveArcModelProfiles/);
+  assert.match(source, /materializeArcSubagentsForContext\(ctx, "arc_models_save"\)/);
+  assert.match(source, /notifyArcSubagentMaterialization\(ctx, materialized\)/);
 });
 
 test('arc brainstorm setup applies recommended thinking and avoids unrelated fallback models', () => {
