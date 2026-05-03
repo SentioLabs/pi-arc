@@ -373,7 +373,16 @@ class ArcModelProfilesComponent {
 
     const detailWidth = Math.max(0, width - 2);
     const rows = this.profileRows();
-    for (let index = 0; index < rows.length; index++) {
+    const maxVisibleProfiles = 3;
+    let start = 0;
+    if (rows.length > maxVisibleProfiles) {
+      start = Math.max(0, this.cursor - Math.floor(maxVisibleProfiles / 2));
+      start = Math.min(start, rows.length - maxVisibleProfiles);
+    }
+    const end = Math.min(start + maxVisibleProfiles, rows.length);
+
+    if (start > 0) lines.push(row(` ${this.theme.fg("dim", `↑ ${start} more`)}`, width, this.theme));
+    for (let index = start; index < end; index++) {
       const profile = rows[index]!;
       const selected = index === this.cursor;
       const prefix = selected ? this.theme.fg("accent", "▸ ") : "  ";
@@ -384,6 +393,7 @@ class ArcModelProfilesComponent {
       const note = this.effectiveThinkingNote(profile.key);
       if (note) lines.push(row(this.profileDetailLine("note", note, detailWidth, selected), width, this.theme));
     }
+    if (rows.length - end > 0) lines.push(row(` ${this.theme.fg("dim", `↓ ${rows.length - end} more`)}`, width, this.theme));
 
     lines.push(row("", width, this.theme));
     lines.push(renderFooter(" [Enter] Edit · [Esc] Cancel · [m]odel [t]hinking [r]ecommended [d]isable [s]ave ", width, this.theme));

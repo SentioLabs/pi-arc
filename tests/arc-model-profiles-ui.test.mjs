@@ -55,6 +55,15 @@ test('arc model profiles UI uses centered overlay options', () => {
   assert.match(source, /maxHeight:\s*"80%"/);
 });
 
+test('arc model profiles UI constrains profile rows to a cursor-following viewport', () => {
+  const source = read('extensions/arc/model-profiles-ui.ts');
+  assert.match(source, /const maxVisibleProfiles = 3/);
+  assert.match(source, /this\.cursor - Math\.floor\(maxVisibleProfiles \/ 2\)/);
+  assert.match(source, /rows\.length - maxVisibleProfiles/);
+  assert.match(source, /↑ \$\{start\} more/);
+  assert.match(source, /↓ \$\{rows\.length - end\} more/);
+});
+
 test('arc model profiles UI renders readable blocks with independent truncated detail lines', () => {
   const source = read('extensions/arc/model-profiles-ui.ts');
   assert.match(source, /: this\.theme\.fg\("dim", profile\.label\)/);
