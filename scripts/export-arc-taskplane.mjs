@@ -362,10 +362,10 @@ async function performExport(options) {
       await fs.mkdir(path.dirname(writePlan.path), { recursive: true });
       await fs.writeFile(writePlan.path, writePlan.content, 'utf8');
     }
-  }
 
-  console.log(`/orch-plan ${path.join(options.root, epic.id)}`);
-  console.log(`/orch ${path.join(options.root, epic.id)}`);
+    console.log(`/orch-plan ${path.join(options.root, epic.id)}`);
+    console.log(`/orch ${path.join(options.root, epic.id)}`);
+  }
 }
 
 async function main(argv = process.argv.slice(2)) {

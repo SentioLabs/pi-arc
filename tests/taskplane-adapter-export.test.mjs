@@ -165,6 +165,10 @@ test('CLI export reads closed external dependencies into context', (t) => {
   const result = spawnSync(process.execPath, [scriptPath, epic.id, '--root', root], { encoding: 'utf8', env });
 
   assert.equal(result.status, 0, result.stderr);
+  const exportRoot = path.join(root, epic.id);
+  const stdoutLines = result.stdout.trim().split(/\r?\n/);
+  assert.ok(stdoutLines.includes(`/orch-plan ${exportRoot}`), result.stdout);
+  assert.ok(stdoutLines.includes(`/orch ${exportRoot}`), result.stdout);
   const context = readFileSync(path.join(root, epic.id, 'CONTEXT.md'), 'utf8');
   assert.ok(context.includes(`Packet root: \`${root}\``));
   assert.match(context, /piarc-0390\.external\.closed — Closed external prerequisite/);
@@ -201,6 +205,8 @@ test('CLI dry-run prints planned paths without creating files', (t) => {
   const stdoutLines = result.stdout.trim().split(/\r?\n/);
   assert.ok(stdoutLines.includes(expectedContextPath), result.stdout);
   assert.ok(stdoutLines.includes(expectedPromptPath), result.stdout);
+  assert.equal(result.stdout.includes('/orch-plan'), false);
+  assert.equal(result.stdout.includes('/orch '), false);
   assert.equal(existsSync(root), false);
   assert.equal(existsSync(expectedContextPath), false);
   assert.equal(existsSync(expectedPromptPath), false);
