@@ -120,11 +120,16 @@ export function buildTaskplanePrompt({ epic, issue, exportedDependencies = [], d
   return `${lines.join('\n')}\n`;
 }
 
-export function buildTaskplaneContext({ epic, selectedIssues = [], satisfiedExternalDependencies = [] }) {
+export function buildTaskplaneContext({
+  epic,
+  selectedIssues = [],
+  satisfiedExternalDependencies = [],
+  root = TASKPLANE_PACKET_ROOT,
+}) {
   const lines = [];
   lines.push('# Arc Taskplane Export Context');
   lines.push('');
-  lines.push(`Packet root: \`${TASKPLANE_PACKET_ROOT}\``);
+  lines.push(`Packet root: \`${root}\``);
   lines.push('Generated packets are branch-visible spike artifacts.');
   lines.push(TASKPLANE_CONTEXT_CLOSURE_SENTENCE);
   lines.push('');
@@ -319,6 +324,7 @@ async function performExport(options) {
     epic,
     selectedIssues,
     satisfiedExternalDependencies,
+    root: options.root,
   });
 
   const exportedDependenciesByIssue = new Map();
@@ -371,13 +377,7 @@ const isDirectRun = process.argv[1]
   && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
 
 if (isDirectRun) {
-  const argv = process.argv.slice(2);
-  if (!argv[0] || argv[0].startsWith('--')) {
-    console.error(USAGE);
-    process.exit(1);
-  }
-
-  main(argv).catch((error) => {
+  main(process.argv.slice(2)).catch((error) => {
     console.error(error.message);
     if (!String(error.message).includes('Usage:')) {
       console.error(USAGE);

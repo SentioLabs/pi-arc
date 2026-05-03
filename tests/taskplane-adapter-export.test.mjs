@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -166,7 +166,44 @@ test('CLI export reads closed external dependencies into context', (t) => {
 
   assert.equal(result.status, 0, result.stderr);
   const context = readFileSync(path.join(root, epic.id, 'CONTEXT.md'), 'utf8');
+  assert.ok(context.includes(`Packet root: \`${root}\``));
   assert.match(context, /piarc-0390\.external\.closed — Closed external prerequisite/);
+});
+
+test('CLI dry-run prints planned paths without creating files', (t) => {
+  const parentDir = mkdtempSync(path.join(tmpdir(), 'arc-export-dry-run-parent-'));
+  const root = path.join(parentDir, 'dry-run-root');
+  t.after(() => rmSync(parentDir, { recursive: true, force: true }));
+
+  const selectedChild = {
+    id: issue.id,
+    title: issue.title,
+    status: 'open',
+    description: issueDescription(),
+    dependencies: [],
+  };
+  const { env } = createArcFixture(t, {
+    [epic.id]: {
+      ...epic,
+      status: 'open',
+      dependents: [
+        { issue_id: selectedChild.id, depends_on_id: epic.id, type: 'parent-child' },
+      ],
+    },
+    [selectedChild.id]: selectedChild,
+  });
+
+  const result = spawnSync(process.execPath, [scriptPath, epic.id, '--root', root, '--dry-run'], { encoding: 'utf8', env });
+
+  assert.equal(result.status, 0, result.stderr);
+  const expectedContextPath = path.join(root, epic.id, 'CONTEXT.md');
+  const expectedPromptPath = path.join(root, epic.id, 'piarc-0390.epic01.2-add-exporter-script', 'PROMPT.md');
+  const stdoutLines = result.stdout.trim().split(/\r?\n/);
+  assert.ok(stdoutLines.includes(expectedContextPath), result.stdout);
+  assert.ok(stdoutLines.includes(expectedPromptPath), result.stdout);
+  assert.equal(existsSync(root), false);
+  assert.equal(existsSync(expectedContextPath), false);
+  assert.equal(existsSync(expectedPromptPath), false);
 });
 
 test('CLI export rejects open external dependencies outside selected child issues', (t) => {
