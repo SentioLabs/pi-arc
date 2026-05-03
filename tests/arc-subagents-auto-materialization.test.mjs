@@ -39,7 +39,7 @@ test('Arc subagent user target prefers modern user agent directory', () => {
   assert.equal(source.includes('// "\\.agents" "\\.pi", "agent", "agents"'), false);
 });
 
-test('Arc subagent markdown render accepts ArcSubagentRenderInput contract directly', () => {
+test('Arc subagent markdown render preserves frontmatter, metadata, and body order', () => {
   const source = read('extensions/arc/subagents.ts');
 
   assert.match(source, /import \{ createHash \} from "node:crypto";/);
@@ -60,4 +60,22 @@ test('Arc subagent markdown render accepts ArcSubagentRenderInput contract direc
   assert.match(source, /inheritProjectContext: true/);
   assert.match(source, /inheritSkills: false/);
   assert.match(source, /frontmatter\}\\n\$\{metadata\}\\n\\n\$\{body\}/);
+});
+
+test('Arc subagent markdown render quotes colon-bearing descriptions and keeps expected output sections', () => {
+  const source = read('extensions/arc/subagents.ts');
+  const problematicDescription = 'Use this agent when creating issues. This includes: epics, tasks, labels.';
+
+  assert.equal(JSON.stringify(problematicDescription), '"Use this agent when creating issues. This includes: epics, tasks, labels."');
+  assert.match(source, /function yamlStringValue\(value: string\): string \{\s*return JSON\.stringify\(value\);\s*\}/);
+  assert.match(source, /input\.parsedSource\.description \? `description: \$\{yamlStringValue\(input\.parsedSource\.description\)\}` : undefined,/);
+  assert.match(source, /`name: \$\{input\.targetName\}`/);
+  assert.match(source, /input\.resolvedModel \? `model: \$\{input\.resolvedModel\}` : undefined,/);
+  assert.match(source, /input\.parsedSource\.tools\?\.length \? `tools: \$\{input\.parsedSource\.tools\.join\(", "\)\}` : undefined,/);
+  assert.match(source, /frontmatter\}\\n\$\{metadata\}\\n\\n\$\{body\}/);
+  assert.match(source, /source-sha256/);
+  assert.match(source, /model-profile-key/);
+  assert.match(source, /model-resolution-source/);
+  assert.match(source, /models-config-sha256/);
+  assert.match(source, /generated-at/);
 });
