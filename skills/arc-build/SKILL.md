@@ -97,6 +97,57 @@ Tasks are dispatched one at a time through the orchestration loop below. Use thi
 - Tasks with dependency ordering (`blocks`/`blockedBy`)
 - When you're unsure whether tasks are independent
 
+### Optional Taskplane backend for large/resumable batches
+
+Taskplane is an optional execution backend for large or longer-running Arc batches where dashboard visibility, resume support, supervisor control, or an orch-branch merge flow are worth the heavier orchestration lane. Do not use Taskplane for ordinary small/medium independent patch batches; keep `pi-subagents` as the default Arc backend for those.
+
+When the batch meets the large/resumable threshold, ask the user before switching backends. Use `ask_user_question` with these options:
+
+```json
+{
+  "questions": [
+    {
+      "header": "Backend",
+      "question": "This Arc batch looks large or resumable. Which execution backend should run it?",
+      "options": [
+        {
+          "label": "pi-subagents (Recommended)",
+          "description": "Default Arc path for independent patch batches; Arc applies, verifies, reviews, commits, and closes each task serially."
+        },
+        {
+          "label": "Taskplane",
+          "description": "Use only when dashboard visibility, resume support, supervisor controls, or orch-branch merge are worth a heavier execution lane."
+        },
+        {
+          "label": "Sequential",
+          "description": "Use when backend readiness is uncertain, tasks overlap, or the user wants the safest serialized path."
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Taskplane hard gates:**
+- The approved plan has a T0 foundation, File Ownership Matrix, Parallel Batch Manifest, and Validation Matrix.
+- The selected batch is ready in Arc and has no open blockers outside the export set.
+- `scripts/export-arc-taskplane.mjs` exists on HEAD.
+- Taskplane is installed or loaded locally; check `command -v taskplane` or load it with `pi -e /home/bfirestone/devspace/personal/github/pi-taskplane`.
+- Generated packets go under `taskplane-tasks/arc/<epic-id>/` and are treated as branch-visible spike artifacts.
+
+**Taskplane execution handoff:**
+- ```bash
+  node scripts/export-arc-taskplane.mjs <epic-id> --root taskplane-tasks/arc
+  ```
+- ```text
+  /orch-plan taskplane-tasks/arc/<epic-id>
+  /orch taskplane-tasks/arc/<epic-id>
+  /orch-status
+  /orch-integrate
+  ```
+
+**Closure warning:** Taskplane `.DONE` does not close Arc issues. After `/orch-integrate`, Arc must run fresh validation, inspect `STATUS.md`, run required spec/code/evaluator gates, and close each mapped Arc issue explicitly.
+
 ### Parallel
 
 Parallel worktree dispatch is available **only** through the optional `pi-subagents` companion package, not through `arc_agent`. Use it only when ALL of these are true:
