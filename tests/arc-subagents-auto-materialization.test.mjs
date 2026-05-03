@@ -1,9 +1,26 @@
 import { readFileSync } from 'node:fs';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 function read(path) {
   return readFileSync(path, 'utf8');
+}
+
+function renderTestAgent(mod, source, target, modelsConfigHash = 'models-hash') {
+  return mod.buildArcSubagentMarkdown({
+    targetName: target,
+    sourceName: source,
+    sourceMarkdown: `# ${source}`,
+    parsedSource: { prompt: `# ${source}` },
+    resolvedModel: 'openai-codex/gpt-5.4-mini',
+    modelProfileKey: 'builder',
+    modelResolutionSource: 'test',
+    modelsConfigHash,
+    generatedAt: '2026-05-03T00:00:00.000Z',
+  });
 }
 
 test('Arc subagent materializer exposes stable result contract', () => {
@@ -78,6 +95,135 @@ test('Arc subagent markdown render quotes colon-bearing descriptions and keeps e
   assert.match(source, /model-resolution-source/);
   assert.match(source, /models-config-sha256/);
   assert.match(source, /generated-at/);
+});
+
+test('Arc materializer preserves non-generated files and reports project shadows', async () => {
+  const mod = await import('../extensions/arc/subagents.ts');
+  const root = await mkdtemp(path.join(tmpdir(), 'arc-subagents-'));
+  try {
+    const cwd = path.join(root, 'project', 'child');
+    const homeDir = path.join(root, 'home');
+    const agentsDir = path.join(root, 'agents');
+    await mkdir(cwd, { recursive: true });
+    await mkdir(homeDir, { recursive: true });
+    await mkdir(agentsDir, { recursive: true });
+
+    const targetDir = mod.resolveArcSubagentDir('user', cwd, homeDir);
+    await mkdir(targetDir, { recursive: true });
+    await writeFile(path.join(targetDir, 'arc-builder.md'), '', 'utf8');
+
+    const projectAgentsDir = path.join(cwd, '.pi', 'agents');
+    const legacyProjectAgentsDir = path.join(cwd, '.agents');
+    await mkdir(projectAgentsDir, { recursive: true });
+    await mkdir(legacyProjectAgentsDir, { recursive: true });
+    await writeFile(path.join(projectAgentsDir, 'arc-builder.md'), renderTestAgent(mod, 'builder', 'arc-builder'), 'utf8');
+    await writeFile(path.join(legacyProjectAgentsDir, 'arc-doc-writer.md'), 'custom project shadow', 'utf8');
+
+    const result = await mod.materializeArcSubagents({
+      reason: 'manual_repair',
+      scope: 'user',
+      cwd,
+      homeDir,
+      agentsDir,
+      modelsConfigSha256: 'models-hash',
+      renderAgent: async (source, target) => renderTestAgent(mod, source, target),
+    });
+
+    const builder = result.writes.find((entry) => entry.agent === 'arc-builder');
+    assert.equal(builder?.status, 'skipped');
+    assert.equal(await readFile(path.join(targetDir, 'arc-builder.md'), 'utf8'), '');
+    assert.ok(result.shadows.some((shadow) => shadow.projectPath.endsWith(path.join('.pi', 'agents', 'arc-builder.md'))));
+    assert.ok(result.shadows.some((shadow) => shadow.projectPath.endsWith(path.join('.agents', 'arc-doc-writer.md'))));
+    assert.ok(result.shadows.every((shadow) => shadow.message.includes('project scope wins over user scope')));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('Arc materializer falls back to legacy user directory when modern user directory is unavailable', async () => {
+  const mod = await import('../extensions/arc/subagents.ts');
+  const root = await mkdtemp(path.join(tmpdir(), 'arc-subagents-'));
+  try {
+    const cwd = path.join(root, 'project');
+    const homeDir = path.join(root, 'home');
+    const agentsDir = path.join(root, 'agents');
+    await mkdir(cwd, { recursive: true });
+    await mkdir(homeDir, { recursive: true });
+    await mkdir(agentsDir, { recursive: true });
+    await writeFile(path.join(homeDir, '.agents'), 'not a directory', 'utf8');
+
+    const result = await mod.materializeArcSubagents({
+      reason: 'session_start',
+      scope: 'user',
+      cwd,
+      homeDir,
+      agentsDir,
+      modelsConfigSha256: 'models-hash',
+      allowLegacyUserDirFallback: true,
+      renderAgent: async (source, target) => renderTestAgent(mod, source, target),
+    });
+
+    const legacyDir = path.join(homeDir, '.pi', 'agent', 'agents');
+    assert.equal(result.targetDir, legacyDir);
+    assert.equal(result.writes.filter((entry) => entry.status === 'written').length, mod.ARC_PI_SUBAGENTS.length);
+    assert.match(await readFile(path.join(legacyDir, 'arc-builder.md'), 'utf8'), /name: arc-builder/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('Arc materializer falls back when modern user directory has partial target I/O failures', async () => {
+  const mod = await import('../extensions/arc/subagents.ts');
+  const root = await mkdtemp(path.join(tmpdir(), 'arc-subagents-'));
+  try {
+    const cwd = path.join(root, 'project');
+    const homeDir = path.join(root, 'home');
+    const agentsDir = path.join(root, 'agents');
+    await mkdir(cwd, { recursive: true });
+    await mkdir(homeDir, { recursive: true });
+    await mkdir(agentsDir, { recursive: true });
+
+    const modernDir = path.join(homeDir, '.agents');
+    await mkdir(path.join(modernDir, 'arc-doc-writer.md'), { recursive: true });
+
+    const result = await mod.materializeArcSubagents({
+      reason: 'session_start',
+      scope: 'user',
+      cwd,
+      homeDir,
+      agentsDir,
+      modelsConfigSha256: 'models-hash',
+      allowLegacyUserDirFallback: true,
+      renderAgent: async (source, target) => renderTestAgent(mod, source, target),
+    });
+
+    const legacyDir = path.join(homeDir, '.pi', 'agent', 'agents');
+    assert.equal(result.targetDir, legacyDir);
+    assert.equal(result.writes.filter((entry) => entry.status === 'written').length, mod.ARC_PI_SUBAGENTS.length);
+    assert.match(await readFile(path.join(legacyDir, 'arc-doc-writer.md'), 'utf8'), /name: arc-doc-writer/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('Arc source agents document optional supervisor escalation without bundling pi-intercom', () => {
+  for (const file of [
+    'agents/builder.md',
+    'agents/code-reviewer.md',
+    'agents/doc-writer.md',
+    'agents/evaluator.md',
+    'agents/issue-manager.md',
+    'agents/spec-reviewer.md',
+  ]) {
+    const source = read(file);
+    assert.match(source, /## Supervisor Escalation/);
+    assert.match(source, /contact_supervisor/);
+    assert.match(source, /Never invent an intercom target/);
+    assert.match(source, /Do not send routine completion handoffs|do not send routine completion handoffs/i);
+  }
+  const pkg = JSON.parse(read('package.json'));
+  assert.equal(pkg.dependencies['pi-intercom'], undefined);
+  assert.ok(!pkg.bundledDependencies.includes('pi-intercom'));
 });
 
 test('Arc subagent markdown render runtime output matches expected structure', async () => {
