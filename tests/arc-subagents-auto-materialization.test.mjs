@@ -42,12 +42,17 @@ test('Arc subagent user target prefers modern user agent directory', () => {
 test('Arc subagent markdown render accepts ArcSubagentRenderInput contract directly', () => {
   const source = read('extensions/arc/subagents.ts');
 
+  assert.match(source, /import \{ createHash \} from "node:crypto";/);
   assert.match(source, /import type \{ ArcModelProfileKey \} from "\.\/model-profiles\.ts";/);
   assert.match(source, /export interface ArcSubagentRenderInput/);
   assert.match(source, /export interface ArcSubagentParsedSource/);
   assert.match(source, /parsedSource:\s*ArcSubagentParsedSource;/);
   assert.match(source, /prompt:\s*string;/);
+  assert.match(source, /export interface ArcSubagentRenderInput\s*\{[^}]*generatedAt:\s*string;[^}]*\}/);
+  assert.doesNotMatch(source, /export interface ArcSubagentRenderInput\s*\{[^}]*sourceSha256:\s*string;/);
+  assert.match(source, /createHash\("sha256"\)\.update\(text\)\.digest\("hex"\)/);
   assert.match(source, /buildArcSubagentMarkdown\(input: ArcSubagentRenderInput\): string/);
+  assert.match(source, /sourceSha256:\s*sha256Text\(input\.sourceMarkdown\),/);
   assert.match(source, /const frontmatter = \[/);
   assert.match(source, /"---"/);
   assert.match(source, /`name: \$\{input\.targetName\}`/);
