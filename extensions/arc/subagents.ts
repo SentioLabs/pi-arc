@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import path from "node:path";
 
 import type { ArcModelProfileKey } from "./model-profiles.ts";
@@ -60,7 +61,6 @@ export interface ArcSubagentRenderInput {
   modelProfileKey: ArcModelProfileKey;
   modelResolutionSource: string;
   modelsConfigHash: string;
-  sourceSha256: string;
   generatedAt: string;
 }
 
@@ -108,10 +108,14 @@ export function buildArcSubagentMetadata(input: {
   ].join("\n");
 }
 
+function sha256Text(text: string): string {
+  return createHash("sha256").update(text).digest("hex");
+}
+
 export function buildArcSubagentMarkdown(input: ArcSubagentRenderInput): string {
   const metadata = buildArcSubagentMetadata({
     sourceName: input.sourceName,
-    sourceSha256: input.sourceSha256,
+    sourceSha256: sha256Text(input.sourceMarkdown),
     modelProfileKey: input.modelProfileKey,
     modelResolutionSource: input.modelResolutionSource,
     modelsConfigSha256: input.modelsConfigHash,
