@@ -51,7 +51,7 @@ Dispatch preference (use **async** so longer reviews appear in `/subagents-statu
 - Primary: `subagent({ agent: "arc-code-reviewer", task: "<filled prompt>", context: "fresh", async: true, clarify: false })`
 - After launching async, **wait for terminal status** by polling `subagent({ action: "status", id: "<run-id>" })` until status is `completed` or `failed`
 - Users can monitor review progress via `/subagents-status` during the async run
-- If `subagent` unavailable or `arc-code-reviewer` missing: run `/arc-subagents-sync`, then `subagent({ action: "list" })` to verify, then retry primary
+- Arc code-reviewer should be auto-materialized; if it is missing, first run `subagent({ action: "doctor" })` and inspect Arc's materialization warning. Use `/arc-subagents-sync` only as a deprecated repair command, then re-check with `subagent({ action: "list" })`
 - Fallback only if `pi-subagents` is not installed: `arc_agent(agent="code-reviewer", task="<filled prompt>")`
 
 **Model tier:** Follow the Model Selection table in `../arc-build/SKILL.md`. Model profile: reviews use the `codeReviewer` profile when configured via `/arc-models`; otherwise they fall back to existing tier/frontmatter behavior. Escalate only for large, cross-layer, or security-sensitive diffs. For most reviews, omit `model:` (use the agent's `standard` default). For `pi-subagents`, pass the configured concrete large model only when escalating.
