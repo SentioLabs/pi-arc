@@ -240,9 +240,27 @@ For Arc gates (especially spec compliance), use Arc specialists (`arc-spec-revie
 
 ## Execution lanes
 
-- Sequential Arc build: use when tasks overlap, dependencies are linear, or `pi-subagents` is unavailable.
-- Parallel Arc batch: use when `/arc-plan` provides a T0 foundation, file ownership matrix, parallel batch manifest, and validation matrix.
-- Ant Colony: future/optional lane for large exploratory work; not a replacement for Arc gates in this iteration.
+- Sequential Arc build: use when tasks overlap, dependencies are linear, backend readiness is uncertain, or the safest serialized path is preferred.
+- Parallel Arc batch through `pi-subagents`: default for independent patch batches when `/arc-plan` provides a T0 foundation, file ownership matrix, parallel batch manifest, and validation matrix.
+- Optional Taskplane adapter spike: use only for large or longer-running Arc batches where dashboard visibility, resume support, supervisor control, or orch-branch merge are worth the heavier execution lane. Export packets with `node scripts/export-arc-taskplane.mjs <epic-id> --root taskplane-tasks/arc`; generated packets under `taskplane-tasks/arc` are branch-visible spike artifacts. Taskplane `.DONE` does not close Arc issues; Arc still runs validation, review, and explicit issue closure after Taskplane integration.
+- Ant Colony: deprecated as the future Arc orchestration lane; Taskplane is the current candidate for large/resumable orchestration spikes.
+
+### Optional Taskplane adapter spike
+
+```bash
+command -v taskplane || true
+node scripts/export-arc-taskplane.mjs <epic-id> --root taskplane-tasks/arc
+```
+
+```text
+/orch-plan taskplane-tasks/arc/<epic-id>
+/orch taskplane-tasks/arc/<epic-id>
+/orch-integrate
+```
+
+Keep `pi-subagents` as the default Arc backend. Choose Taskplane only when the user opts in for a large/resumable batch after an `ask_user_question` backend choice.
+
+Taskplane `.DONE` does not close Arc issues. After `/orch-integrate`, Arc must run fresh validation, inspect `STATUS.md`, run required review gates, and close each mapped Arc issue explicitly.
 
 ## Naming differences from the Claude plugin
 
