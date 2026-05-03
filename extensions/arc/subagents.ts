@@ -202,25 +202,7 @@ export async function materializeArcSubagents(input: {
   legacyUserDir?: boolean;
   allowLegacyUserDirFallback?: boolean;
 }): Promise<ArcSubagentMaterializationResult> {
-  const result = await materializeArcSubagentsOnce(input);
-  if (shouldRetryLegacyUserDir(input, result)) {
-    return materializeArcSubagentsOnce({ ...input, legacyUserDir: true, allowLegacyUserDirFallback: false });
-  }
-  return result;
-}
-
-function shouldRetryLegacyUserDir(
-  input: Parameters<typeof materializeArcSubagents>[0],
-  result: ArcSubagentMaterializationResult,
-): boolean {
-  return input.scope === "user"
-    && Boolean(input.allowLegacyUserDirFallback)
-    && !input.legacyUserDir
-    && result.writes.some((entry) => entry.status === "failed" && isTargetDirIoFailure(entry.reason));
-}
-
-function isTargetDirIoFailure(reason: string | undefined): boolean {
-  return Boolean(reason?.startsWith("could not read existing target:") || reason?.startsWith("could not write target:"));
+  return materializeArcSubagentsOnce(input);
 }
 
 async function materializeArcSubagentsOnce(input: Parameters<typeof materializeArcSubagents>[0]): Promise<ArcSubagentMaterializationResult> {

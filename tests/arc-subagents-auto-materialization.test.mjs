@@ -172,7 +172,7 @@ test('Arc materializer falls back to legacy user directory when modern user dire
   }
 });
 
-test('Arc materializer falls back when modern user directory has partial target I/O failures', async () => {
+test('Arc materializer reports modern per-file target failures instead of legacy fallback', async () => {
   const mod = await import('../extensions/arc/subagents.ts');
   const root = await mkdtemp(path.join(tmpdir(), 'arc-subagents-'));
   try {
@@ -197,10 +197,10 @@ test('Arc materializer falls back when modern user directory has partial target 
       renderAgent: async (source, target) => renderTestAgent(mod, source, target),
     });
 
-    const legacyDir = path.join(homeDir, '.pi', 'agent', 'agents');
-    assert.equal(result.targetDir, legacyDir);
-    assert.equal(result.writes.filter((entry) => entry.status === 'written').length, mod.ARC_PI_SUBAGENTS.length);
-    assert.match(await readFile(path.join(legacyDir, 'arc-doc-writer.md'), 'utf8'), /name: arc-doc-writer/);
+    assert.equal(result.targetDir, modernDir);
+    const failed = result.writes.find((entry) => entry.agent === 'arc-doc-writer');
+    assert.equal(failed?.status, 'failed');
+    assert.match(failed?.reason ?? '', /could not read existing target:/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
