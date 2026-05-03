@@ -112,6 +112,10 @@ function sha256Text(text: string): string {
   return createHash("sha256").update(text).digest("hex");
 }
 
+function yamlStringValue(value: string): string {
+  return JSON.stringify(value);
+}
+
 export function buildArcSubagentMarkdown(input: ArcSubagentRenderInput): string {
   const metadata = buildArcSubagentMetadata({
     sourceName: input.sourceName,
@@ -125,7 +129,7 @@ export function buildArcSubagentMarkdown(input: ArcSubagentRenderInput): string 
   const frontmatter = [
     "---",
     `name: ${input.targetName}`,
-    input.parsedSource.description ? `description: ${input.parsedSource.description}` : undefined,
+    input.parsedSource.description ? `description: ${yamlStringValue(input.parsedSource.description)}` : undefined,
     input.resolvedModel ? `model: ${input.resolvedModel}` : undefined,
     input.parsedSource.tools?.length ? `tools: ${input.parsedSource.tools.join(", ")}` : undefined,
     "systemPromptMode: replace",
