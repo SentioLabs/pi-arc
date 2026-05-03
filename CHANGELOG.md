@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/SentioLabs/pi-arc/compare/v0.9.0...v0.9.1) (2026-05-03)
+
+
+### Bug Fixes
+
+* **arc:** make model profiles scrollable ([6535fde](https://github.com/SentioLabs/pi-arc/commit/6535fde437e391a4df79c87d6e2042bade0da437))
+
 ## [0.9.0](https://github.com/SentioLabs/pi-arc/compare/v0.8.0...v0.9.0) (2026-05-03)
 
 
