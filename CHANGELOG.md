@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/SentioLabs/pi-arc/compare/v0.8.0...v0.9.0) (2026-05-03)
+
+
+### Features
+
+* **arc:** improve model profile recommendations ([7fa6593](https://github.com/SentioLabs/pi-arc/commit/7fa659354bad16c85006fe84948bdd528cdf3032))
+
 ## [0.8.0](https://github.com/SentioLabs/pi-arc/compare/v0.7.1...v0.8.0) (2026-05-03)
 
 
