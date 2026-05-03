@@ -19,6 +19,23 @@ test('arc model profiles UI exports the editor entrypoint and chain-style labels
   assert.match(source, /\[m\]odel/);
   assert.match(source, /\[t\]hinking/);
   assert.match(source, /\[r\]ecommended/);
+  assert.match(source, /\[d\]isable/);
+  assert.match(source, /\[s\]ave/);
+});
+
+test('arc model profiles UI uses centered overlay options', () => {
+  const source = read('extensions/arc/model-profiles-ui.ts');
+  assert.match(source, /ctx\.ui\.custom/);
+  assert.match(source, /overlay:\s*true/);
+  assert.match(source, /anchor:\s*"center"/);
+  assert.match(source, /width:\s*84/);
+  assert.match(source, /maxHeight:\s*"80%"/);
+});
+
+test('arc model profiles UI dims inactive profile row labels and details', () => {
+  const source = read('extensions/arc/model-profiles-ui.ts');
+  assert.match(source, /: this\.theme\.fg\("dim", profile\.label\)/);
+  assert.match(source, /this\.theme\.fg\("dim", `    model: \$\{pad\(model, valueWidth\)\} thinking: \$\{pad\(thinking, 10\)\} status: \$\{profile\.status\}`\)/);
 });
 
 test('arc model profiles UI uses Pi available models and thinking helpers', () => {

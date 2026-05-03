@@ -335,16 +335,19 @@ class ArcModelProfilesComponent {
       const profile = rows[index]!;
       const selected = index === this.cursor;
       const prefix = selected ? this.theme.fg("accent", "▸ ") : "  ";
-      const label = selected ? this.theme.fg("accent", profile.label) : profile.label;
-      const badge = profile.recommended ? ` ${this.theme.fg("success", "[recommended]")}` : "";
+      const label = selected ? this.theme.fg("accent", profile.label) : this.theme.fg("dim", profile.label);
+      const badge = profile.recommended ? ` ${this.theme.fg(selected ? "success" : "dim", "[recommended]")}` : "";
       const model = truncateToWidth(profile.model, valueWidth);
       const thinking = truncateToWidth(profile.thinking, 10);
       const statusColor = profile.status.includes("unavailable") ? "warning" : profile.status.includes("recommended") ? "success" : "dim";
       const status = this.theme.fg(statusColor, profile.status);
+      const detailLine = selected
+        ? `    model: ${pad(model, valueWidth)} thinking: ${pad(thinking, 10)} status: ${status}`
+        : this.theme.fg("dim", `    model: ${pad(model, valueWidth)} thinking: ${pad(thinking, 10)} status: ${profile.status}`);
       lines.push(row(` ${prefix}${label}${badge}`, width, this.theme));
-      lines.push(row(`    model: ${pad(model, valueWidth)} thinking: ${pad(thinking, 10)} status: ${status}`, width, this.theme));
+      lines.push(row(detailLine, width, this.theme));
       const note = this.effectiveThinkingNote(profile.key);
-      if (note) lines.push(row(`    note: ${note}`, width, this.theme));
+      if (note) lines.push(row(selected ? `    note: ${note}` : this.theme.fg("dim", `    note: ${note}`), width, this.theme));
     }
 
     lines.push(row("", width, this.theme));
