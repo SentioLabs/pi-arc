@@ -395,6 +395,21 @@ async function promptBrainstormProfileSetup(
   );
 }
 
+async function materializeArcSubagentsAfterModelSave(ctx: ExtensionContext): Promise<void> {
+  const materialized = await materializeArcSubagentsForContext(ctx, "arc_models_save");
+  notifyArcSubagentMaterialization(ctx, materialized);
+}
+
+async function saveArcModelsConfigWithMaterialization(
+  ctx: ExtensionContext,
+  config: ArcModelsConfig,
+  configPath: string,
+): Promise<void> {
+  await saveArcModelsConfig(config, configPath);
+  if (ctx.hasUI) ctx.ui.notify("Arc model profiles saved", "info");
+  await materializeArcSubagentsAfterModelSave(ctx);
+}
+
 async function openAndMaybeSaveArcModelProfiles(
   ctx: ExtensionContext,
   config: ArcModelsConfig,
@@ -407,8 +422,7 @@ async function openAndMaybeSaveArcModelProfiles(
   if (markSetupComplete) {
     result.config.setup = { ...result.config.setup, completedAt: new Date().toISOString(), dismissedAt: null };
   }
-  await saveArcModelsConfig(result.config, configPath);
-  if (ctx.hasUI) ctx.ui.notify("Arc model profiles saved", "info");
+  await saveArcModelsConfigWithMaterialization(ctx, result.config, configPath);
   return true;
 }
 
@@ -484,8 +498,7 @@ async function maybeEnsureBrainstormProfileReady(ctx: ExtensionContext, _args?: 
     if (action === "fallback") return true;
     if (action === "disable") {
       delete config.modelProfiles.brainstorm;
-      await saveArcModelsConfig(config, configPath);
-      if (ctx.hasUI) ctx.ui.notify("Arc model profiles saved", "info");
+      await saveArcModelsConfigWithMaterialization(ctx, config, configPath);
       return true;
     }
     return false;
@@ -518,8 +531,7 @@ async function maybeEnsureBrainstormProfileReady(ctx: ExtensionContext, _args?: 
 
   if (action === "recommended") {
     applyRecommendedArcModelProfiles(config, availableModels, preferredProvider);
-    await saveArcModelsConfig(config, configPath);
-    if (ctx.hasUI) ctx.ui.notify("Arc model profiles saved", "info");
+    await saveArcModelsConfigWithMaterialization(ctx, config, configPath);
     return true;
   }
   if (action === "customize") return openAndMaybeSaveArcModelProfiles(ctx, config, configPath, preferredProvider, true);
@@ -1038,11 +1050,7 @@ export default function arcExtension(pi: ExtensionAPI) {
     handler: async (_args, ctx) => {
       const configPath = resolveArcModelsConfigPath();
       const config = await loadArcModelsConfig(configPath);
-      const saved = await openAndMaybeSaveArcModelProfiles(ctx, config, configPath, ctx.model?.provider, false);
-      if (saved) {
-        const materialized = await materializeArcSubagentsForContext(ctx, "arc_models_save");
-        notifyArcSubagentMaterialization(ctx, materialized);
-      }
+      await openAndMaybeSaveArcModelProfiles(ctx, config, configPath, ctx.model?.provider, false);
     },
   });
 
