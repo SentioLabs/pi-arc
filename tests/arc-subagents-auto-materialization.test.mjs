@@ -26,6 +26,8 @@ test('Arc generated subagents record model freshness metadata', () => {
   assert.match(source, /model-resolution-source/);
   assert.match(source, /models-config-sha256/);
   assert.match(source, /generated-at/);
+  assert.match(source, /export const ARC_SUBAGENT_GENERATED_MARKER/);
+  assert.match(source, /export function isGeneratedArcSubagent/);
 });
 
 test('Arc subagent user target prefers modern user agent directory', () => {
@@ -40,7 +42,17 @@ test('Arc subagent user target prefers modern user agent directory', () => {
 test('Arc subagent markdown render accepts ArcSubagentRenderInput contract directly', () => {
   const source = read('extensions/arc/subagents.ts');
 
+  assert.match(source, /import type \{ ArcModelProfileKey \} from "\.\/model-profiles\.ts";/);
   assert.match(source, /export interface ArcSubagentRenderInput/);
-  assert.match(source, /sourceSha256: string;/);
+  assert.match(source, /export interface ArcSubagentParsedSource/);
+  assert.match(source, /parsedSource:\s*ArcSubagentParsedSource;/);
+  assert.match(source, /prompt:\s*string;/);
   assert.match(source, /buildArcSubagentMarkdown\(input: ArcSubagentRenderInput\): string/);
+  assert.match(source, /const frontmatter = \[/);
+  assert.match(source, /"---"/);
+  assert.match(source, /`name: \$\{input\.targetName\}`/);
+  assert.match(source, /systemPromptMode: replace/);
+  assert.match(source, /inheritProjectContext: true/);
+  assert.match(source, /inheritSkills: false/);
+  assert.match(source, /frontmatter\}\\n\$\{metadata\}\\n\\n\$\{body\}/);
 });
