@@ -13,9 +13,7 @@ Orchestrate task implementation by dispatching fresh `builder` subagents per tas
 
 ## Model Selection
 
-Every Arc subagent dispatch can override the subagent's frontmatter model via the `model:` parameter. Before dispatching, assess the task size/risk and choose the smallest model tier that is likely to succeed. The default floor per agent is set in frontmatter — use overrides to downgrade trivial tasks or escalate complex/high-risk tasks.
-
-`arc_agent` resolves Arc model tiers through `arc.modelTiers` in Pi settings. Defaults are:
+Every Arc subagent dispatch can override the subagent's frontmatter model via the `model:` parameter. `modelProfiles` from `${XDG_CONFIG_HOME:-~/.config}/pi-arc/models.json` are the preferred way to choose role-specific models, and `arc.modelTiers` is a legacy fallback for older setups. Before dispatching, assess the task size/risk and choose the smallest model tier that is likely to succeed. The default floor per agent is set in frontmatter — use overrides to downgrade trivial tasks or escalate complex/high-risk tasks.
 
 | Tier | Default concrete model | Use for |
 |---|---|---|
@@ -24,7 +22,18 @@ Every Arc subagent dispatch can override the subagent's frontmatter model via th
 | `standard` | `openai-codex/gpt-5.3-codex` | Normal contained implementation/review |
 | `large` | `openai-codex/gpt-5.5` | Cross-cutting, architectural, security-sensitive, or adversarial review |
 
-Users can override the tier map in `~/.pi/agent/settings.json` or project `.pi/settings.json`:
+```markdown
+Arc model selection resolves in this order:
+
+1. explicit dispatch `model:` override;
+2. configured `modelProfiles` from `${XDG_CONFIG_HOME:-~/.config}/pi-arc/models.json`;
+3. legacy `arc.modelTiers` from Pi settings;
+4. package defaults.
+
+Users should run `/arc-models` to configure role-specific models. Keep `arc.modelTiers` documented only as a compatibility fallback for older setups.
+```
+
+Legacy fallback settings can still override the tier map in `~/.pi/agent/settings.json` or project `.pi/settings.json`:
 
 ```json
 {
@@ -266,7 +275,7 @@ The evaluator is **not dispatched by default**. Dispatch only when:
 
 When `pi-subagents` is available, dispatch the evaluator through a one-task worktree-isolated parallel run. This gives it a disposable repository copy so it can write acceptance tests and add temporary dependencies without dirtying the main worktree:
 
-```ts
+```text
 subagent({
   tasks: [
     { agent: "arc-evaluator", task: "<filled evaluator prompt>", model: "openai-codex/gpt-5.5" }
@@ -375,7 +384,7 @@ For each task in the manifest, `arc show <task-id>` and confirm the batch is sti
 
 Dispatch the selected batch in one `subagent` tool call so the tasks branch from the same `PARALLEL_BASE`:
 
-```typescript
+```text
 subagent({
   tasks: [
     { agent: "arc-builder", task: "<filled builder prompt>", model: "<configured standard model>" }

@@ -163,33 +163,41 @@ Use Arc for persistent, auditable issue tracking across sessions (`arc create`, 
 
 The brainstorm skill writes a first-line marker like `<!-- arc-review: kind=share-remote id=<id> -->`; `/skill:arc-plan` reads that marker to choose the matching `arc plan` or `arc share` commands.
 
-## Arc model tiers
+## Arc model profiles
 
-Arc subagents use Pi-native model tiers so the orchestrator can choose a right-sized model per dispatch:
+Use `/arc-models` to configure Arc's recommended Pi model and thinking level per workflow role. Arc stores profile preferences at `${XDG_CONFIG_HOME:-~/.config}/pi-arc/models.json`, with top-level `modelProfiles`.
 
-| Tier | Default concrete model | Typical use |
-|---|---|---|
-| `nano` | `openai-codex/gpt-5.4-nano` | Bulk CLI issue creation and other low-reasoning issue-manager work |
-| `small` | `openai-codex/gpt-5.4-mini` | Docs and mechanical edits |
-| `standard` | `openai-codex/gpt-5.3-codex` | Normal contained implementation/review |
-| `large` | `openai-codex/gpt-5.5` | Complex, cross-cutting, or security-sensitive work |
-
-Override the defaults in `~/.pi/agent/settings.json` or project `.pi/settings.json`:
+Profile keys map directly to the workflow roles: `brainstorm`, `plan`, `issueManager`, `builder`, `codeReviewer`, `docWriter`, `specReviewer`, and `evaluator`.
 
 ```json
 {
-  "arc": {
-    "modelTiers": {
-      "nano": "openai-codex/gpt-5.4-nano",
-      "small": "openai-codex/gpt-5.4-mini",
-      "standard": "openai-codex/gpt-5.3-codex",
-      "large": "openai-codex/gpt-5.5"
+  "version": 1,
+  "modelProfiles": {
+    "brainstorm": {
+      "model": "openai-codex/gpt-5.4-mini",
+      "thinking": "low"
+    },
+    "issueManager": {
+      "model": "openai-codex/gpt-5.4-nano",
+      "thinking": "off"
+    },
+    "builder": {
+      "model": "openai-codex/gpt-5.3-codex",
+      "thinking": "medium"
+    },
+    "codeReviewer": {
+      "model": "openai-codex/gpt-5.5",
+      "thinking": "high"
     }
   }
 }
 ```
 
-For compatibility, `arc_agent` still maps legacy aliases: `haiku` → `small`, `sonnet` → `standard`, `opus` → `large`. New prompts can use `nano` directly for low-reasoning issue-manager work.
+`/arc-models` lists only models returned by Pi's active model registry. If a configured model is unavailable, it prompts you to choose a replacement before saving.
+
+The same `modelProfiles` shape works for `plan`, `docWriter`, `specReviewer`, and `evaluator` profiles.
+
+Legacy `arc.modelTiers` settings in `~/.pi/agent/settings.json` or project `.pi/settings.json` remain supported as a compatibility fallback, but new configuration should use `/arc-models` and `modelProfiles`.
 
 ## Sync Arc specialists into bundled `pi-subagents`
 
@@ -212,7 +220,7 @@ By default, files are written to project scope (`<cwd>/.pi/agents/`). Pass `user
 
 If you previously installed standalone `pi-subagents`, remove the standalone package from `~/.pi/agent/settings.json` or project `.pi/settings.json` if duplicate tools or commands appear. The bundled copy from `@sentiolabs/pi-arc` is enough for Arc workflows.
 
-The `issue-manager` agent defaults to the `nano` model tier and stays phased: create the epic first, then child tasks next, then dependencies/labels after all IDs exist. It prints phase-level timing/progress lines for bulk issue creation. This is sequencing only; true parallel issue creation is not enabled yet.
+The `issue-manager` agent uses the `issueManager` profile (nano tier, thinking off) and stays phased: create the epic first, then child tasks next, then dependencies/labels after all IDs exist. It prints phase-level timing/progress lines for bulk issue creation. This is sequencing only; true parallel issue creation is not enabled yet.
 
 Generated files include a marker comment so reruns can safely update Arc-managed files while preserving manual edits in user-authored files.
 
