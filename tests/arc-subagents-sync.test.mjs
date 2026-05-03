@@ -33,7 +33,7 @@ test('arc extension sync map includes all Arc specialists', () => {
 test('arc extension model tiers include nano', () => {
   const source = read('extensions/arc.ts');
   assert.match(source, /type ArcModelTier = "nano" \| "small" \| "standard" \| "large"/);
-  assert.match(source, /nano: "openai-codex\/gpt-5\.4-nano"/);
+  assert.match(source, /nano: "openai-codex\/gpt-5\.4-mini"/);
   assert.match(source, /nano for bulk CLI issue creation/);
 });
 
