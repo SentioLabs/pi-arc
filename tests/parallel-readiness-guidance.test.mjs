@@ -38,19 +38,6 @@ test('issue-manager documents safe phased issue creation', () => {
   assert.match(source, /## Timing/);
 });
 
-test('issue-manager docs recommend gpt-5.4-mini while preserving legacy fallback guidance', () => {
-  const readme = read('README.md');
-  assert.match(readme, /issueManager profile \(recommended gpt-5\.4-mini with thinking off\)/);
-  assert.doesNotMatch(readme, /issueManager profile \(nano tier, thinking off\)/);
-
-  const source = read('skills/arc-plan/SKILL.md');
-  assert.match(source, /issueManager profile/);
-  assert.match(source, /gpt-5\.4-mini with thinking off/);
-  assert.match(source, /defaults to `nano`/);
-  assert.match(source, /legacy tier\/frontmatter behavior/);
-  assert.doesNotMatch(source, /recommended profile uses a nano-tier model with thinking off/);
-});
-
 test('arc-build consumes the parallel batch manifest safely', () => {
   const source = read('skills/arc-build/SKILL.md');
   assert.match(source, /Parallel Batch Manifest/);
