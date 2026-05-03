@@ -220,7 +220,7 @@ By default, files are written to project scope (`<cwd>/.pi/agents/`). Pass `user
 
 If you previously installed standalone `pi-subagents`, remove the standalone package from `~/.pi/agent/settings.json` or project `.pi/settings.json` if duplicate tools or commands appear. The bundled copy from `@sentiolabs/pi-arc` is enough for Arc workflows.
 
-The `issue-manager` agent uses the `issueManager` profile (nano tier, thinking off) and stays phased: create the epic first, then child tasks next, then dependencies/labels after all IDs exist. It prints phase-level timing/progress lines for bulk issue creation. This is sequencing only; true parallel issue creation is not enabled yet.
+The `issue-manager` agent uses the issueManager profile (recommended gpt-5.4-mini with thinking off) and stays phased: create the epic first, then child tasks next, then dependencies/labels after all IDs exist. It prints phase-level timing/progress lines for bulk issue creation. This is sequencing only; true parallel issue creation is not enabled yet.
 
 Generated files include a marker comment so reruns can safely update Arc-managed files while preserving manual edits in user-authored files.
 
