@@ -169,6 +169,11 @@ function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
 
+    if (arg === '--dry-run=false') {
+      options.dryRun = false;
+      continue;
+    }
+
     if (arg === '--root') {
       const value = rest[i + 1];
       if (!value || value.startsWith('--')) {

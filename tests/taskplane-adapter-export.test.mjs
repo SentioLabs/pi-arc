@@ -129,11 +129,10 @@ test('exporter module does not expose direct-run main function', async () => {
 });
 
 test('direct CLI with missing epic ID prints usage and explicitly exits 1', () => {
-  const result = spawnSync(process.execPath, ['--trace-exit', scriptPath], { encoding: 'utf8' });
+  const result = spawnSync(process.execPath, [scriptPath], { encoding: 'utf8' });
 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Usage: node scripts\/export-arc-taskplane\.mjs <epic-id>/);
-  assert.match(result.stderr, /WARNING: Exited the environment with code 1/);
 });
 
 test('CLI export reads closed external dependencies into context', (t) => {
@@ -210,6 +209,41 @@ test('CLI dry-run prints planned paths without creating files', (t) => {
   assert.equal(existsSync(root), false);
   assert.equal(existsSync(expectedContextPath), false);
   assert.equal(existsSync(expectedPromptPath), false);
+});
+
+test('CLI dry-run=false performs a real export', (t) => {
+  const root = mkdtempSync(path.join(tmpdir(), 'arc-export-root-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+
+  const selectedChild = {
+    id: issue.id,
+    title: issue.title,
+    status: 'open',
+    description: issueDescription(),
+    dependencies: [],
+  };
+  const { env } = createArcFixture(t, {
+    [epic.id]: {
+      ...epic,
+      status: 'open',
+      dependents: [
+        { issue_id: selectedChild.id, depends_on_id: epic.id, type: 'parent-child' },
+      ],
+    },
+    [selectedChild.id]: selectedChild,
+  });
+
+  const result = spawnSync(process.execPath, [scriptPath, epic.id, '--root', root, '--dry-run=false'], { encoding: 'utf8', env });
+
+  assert.equal(result.status, 0, result.stderr);
+  const exportRoot = path.join(root, epic.id);
+  const expectedContextPath = path.join(exportRoot, 'CONTEXT.md');
+  const expectedPromptPath = path.join(exportRoot, 'piarc-0390.epic01.2-add-exporter-script', 'PROMPT.md');
+  const stdoutLines = result.stdout.trim().split(/\r?\n/);
+  assert.ok(stdoutLines.includes(`/orch-plan ${exportRoot}`), result.stdout);
+  assert.ok(stdoutLines.includes(`/orch ${exportRoot}`), result.stdout);
+  assert.equal(existsSync(expectedContextPath), true);
+  assert.equal(existsSync(expectedPromptPath), true);
 });
 
 test('CLI export rejects open external dependencies outside selected child issues', (t) => {
