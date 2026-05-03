@@ -28,8 +28,23 @@ interface ProfileRowView {
   label: string;
   model: string;
   thinking: string;
+  recommendationModel: string;
+  recommendationThinking: ArcThinkingLevel;
+  recommendationReason: string;
   status: string;
   recommended: boolean;
+}
+
+interface ProfileRecommendation {
+  modelId: string;
+  thinking: ArcThinkingLevel;
+  reason: string;
+}
+
+interface ResolvedProfileRecommendation {
+  recommendation: ProfileRecommendation;
+  model?: ArcModelInfo;
+  displayModel: string;
 }
 
 type UiMode = "profiles" | "model" | "thinking";
@@ -46,15 +61,17 @@ const PROFILE_LABELS: Record<ArcModelProfileKey, string> = {
   evaluator: "Evaluator",
 };
 
-const PROFILE_RECOMMENDATION_TERMS: Record<ArcModelProfileKey, string[]> = {
-  brainstorm: ["large", "opus", "gpt-5.5", "sonnet", "gpt-5"],
-  plan: ["standard", "codex", "sonnet", "gpt-5.3", "gpt-5"],
-  issueManager: ["nano", "haiku", "mini", "small"],
-  builder: ["codex", "standard", "sonnet", "gpt-5.3", "gpt-5"],
-  codeReviewer: ["codex", "standard", "sonnet", "gpt-5.3", "gpt-5"],
-  docWriter: ["small", "mini", "haiku", "nano"],
-  specReviewer: ["standard", "codex", "sonnet", "gpt-5.3", "gpt-5"],
-  evaluator: ["small", "mini", "haiku", "standard"],
+const RECOMMENDED_MODEL_PROVIDER = "openai-codex";
+
+const PROFILE_RECOMMENDATIONS: Record<ArcModelProfileKey, ProfileRecommendation> = {
+  brainstorm: { modelId: "gpt-5.5", thinking: "high", reason: "design exploration and architecture judgment" },
+  plan: { modelId: "gpt-5.5", thinking: "high", reason: "task breakdown and sequencing" },
+  issueManager: { modelId: "gpt-5.4-mini", thinking: "off", reason: "Arc CLI formatting and issue updates" },
+  builder: { modelId: "gpt-5.3-codex", thinking: "medium", reason: "implementation and code navigation" },
+  codeReviewer: { modelId: "gpt-5.5", thinking: "high", reason: "review judgment and risk detection" },
+  docWriter: { modelId: "gpt-5.4-mini", thinking: "low", reason: "documentation prose and light reasoning" },
+  specReviewer: { modelId: "gpt-5.5", thinking: "high", reason: "spec compliance and ambiguity detection" },
+  evaluator: { modelId: "gpt-5.5", thinking: "high", reason: "adversarial validation" },
 };
 
 const THINKING_DESCRIPTIONS: Record<ArcThinkingLevel, string> = {
@@ -91,6 +108,10 @@ function row(content: string, width: number, theme: Theme): string {
   return theme.fg("border", "│") + pad(clipped, innerWidth) + theme.fg("border", "│");
 }
 
+function truncateDetail(value: string, width: number): string {
+  return truncateToWidth(value.replace(/[\r\n]+/g, " "), width);
+}
+
 function renderHeader(title: string, width: number, theme: Theme): string {
   const innerWidth = Math.max(0, width - 2);
   const visibleTitle = stripAnsi(title).length;
@@ -124,22 +145,38 @@ function matchesModelQuery(model: ArcModelInfo, query: string): boolean {
   );
 }
 
+function defaultRecommendationModelId(recommendation: ProfileRecommendation): string {
+  return `${RECOMMENDED_MODEL_PROVIDER}/${recommendation.modelId}`;
+}
+
+function matchesRecommendedModelId(model: ArcModelInfo, modelId: string): boolean {
+  return model.id === modelId || model.fullId.endsWith(`/${modelId}`);
+}
+
+function findRecommendedModel(
+  recommendation: ProfileRecommendation,
+  models: ArcModelInfo[],
+  preferredProvider?: string,
+): ArcModelInfo | undefined {
+  const candidates = models.filter((model) => matchesRecommendedModelId(model, recommendation.modelId));
+  const defaultProvider = candidates.find((model) => model.provider === RECOMMENDED_MODEL_PROVIDER);
+  const provider = preferredProvider?.trim();
+  const preferred = provider ? candidates.find((model) => model.provider === provider) : undefined;
+  return defaultProvider ?? preferred ?? candidates[0];
+}
+
 function recommendedModelForProfile(
   key: ArcModelProfileKey,
   models: ArcModelInfo[],
   preferredProvider?: string,
-): ArcModelInfo | undefined {
-  const candidates = sortedModels(models, preferredProvider);
-  if (candidates.length === 0) return undefined;
-
-  const terms = PROFILE_RECOMMENDATION_TERMS[key];
-  for (const term of terms) {
-    const normalizedTerm = term.toLowerCase();
-    const matched = candidates.find((model) => model.fullId.toLowerCase().includes(normalizedTerm));
-    if (matched) return matched;
-  }
-
-  return candidates[0];
+): ResolvedProfileRecommendation {
+  const recommendation = PROFILE_RECOMMENDATIONS[key];
+  const model = findRecommendedModel(recommendation, models, preferredProvider);
+  return {
+    recommendation,
+    model,
+    displayModel: model?.fullId ?? `${defaultRecommendationModelId(recommendation)} (unavailable)`,
+  };
 }
 
 function modelMatchesRecommendation(
@@ -151,6 +188,11 @@ function modelMatchesRecommendation(
   if (!model || !recommendation) return false;
   const info = findArcModelInfo(model, models, preferredProvider);
   return info?.fullId === recommendation.fullId;
+}
+
+function recommendedThinkingForModel(recommendation: ProfileRecommendation, model: ArcModelInfo | undefined): ArcThinkingLevel {
+  const levels = getSupportedArcThinkingLevels(model);
+  return levels.includes(recommendation.thinking) ? recommendation.thinking : "off";
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -329,7 +371,7 @@ class ArcModelProfilesComponent {
     lines.push(row(` ${this.theme.fg("dim", "Available:")} ${this.models.length} models`, width, this.theme));
     lines.push(row("", width, this.theme));
 
-    const valueWidth = Math.max(12, Math.floor((width - 22) / 2));
+    const detailWidth = Math.max(0, width - 2);
     const rows = this.profileRows();
     for (let index = 0; index < rows.length; index++) {
       const profile = rows[index]!;
@@ -337,22 +379,31 @@ class ArcModelProfilesComponent {
       const prefix = selected ? this.theme.fg("accent", "▸ ") : "  ";
       const label = selected ? this.theme.fg("accent", profile.label) : this.theme.fg("dim", profile.label);
       const badge = profile.recommended ? ` ${this.theme.fg(selected ? "success" : "dim", "[recommended]")}` : "";
-      const model = truncateToWidth(profile.model, valueWidth);
-      const thinking = truncateToWidth(profile.thinking, 10);
-      const statusColor = profile.status.includes("unavailable") ? "warning" : profile.status.includes("recommended") ? "success" : "dim";
-      const status = this.theme.fg(statusColor, profile.status);
-      const detailLine = selected
-        ? `    model: ${pad(model, valueWidth)} thinking: ${pad(thinking, 10)} status: ${status}`
-        : this.theme.fg("dim", `    model: ${pad(model, valueWidth)} thinking: ${pad(thinking, 10)} status: ${profile.status}`);
       lines.push(row(` ${prefix}${label}${badge}`, width, this.theme));
-      lines.push(row(detailLine, width, this.theme));
+      for (const detail of this.profileDetailLines(profile, detailWidth, selected)) lines.push(row(detail, width, this.theme));
       const note = this.effectiveThinkingNote(profile.key);
-      if (note) lines.push(row(selected ? `    note: ${note}` : this.theme.fg("dim", `    note: ${note}`), width, this.theme));
+      if (note) lines.push(row(this.profileDetailLine("note", note, detailWidth, selected), width, this.theme));
     }
 
     lines.push(row("", width, this.theme));
     lines.push(renderFooter(" [Enter] Edit · [Esc] Cancel · [m]odel [t]hinking [r]ecommended [d]isable [s]ave ", width, this.theme));
     return lines;
+  }
+
+  private profileDetailLines(profile: ProfileRowView, width: number, selected: boolean): string[] {
+    return [
+      this.profileDetailLine("selected", profile.model, width, selected),
+      this.profileDetailLine("thinking", profile.thinking, width, selected),
+      this.profileDetailLine("recommended", `${profile.recommendationModel} · thinking ${profile.recommendationThinking}`, width, selected),
+      this.profileDetailLine("reason", profile.recommendationReason, width, selected),
+      this.profileDetailLine("status", profile.status, width, selected),
+    ];
+  }
+
+  private profileDetailLine(label: string, value: string, width: number, selected: boolean): string {
+    const valueWidth = Math.max(0, width - label.length - 7);
+    const content = `    ${label}: ${truncateDetail(value, valueWidth)}`;
+    return selected ? content : this.theme.fg("dim", content);
   }
 
   private renderModelPicker(width: number): string[] {
@@ -385,7 +436,7 @@ class ArcModelProfilesComponent {
         const selected = index === this.modelCursor;
         const prefix = selected ? this.theme.fg("accent", "→ ") : "  ";
         const modelText = selected ? this.theme.fg("accent", model.fullId) : model.fullId;
-        const recommendedBadge = recommended?.fullId === model.fullId ? ` ${this.theme.fg("success", "[recommended]")}` : "";
+        const recommendedBadge = recommended.model?.fullId === model.fullId ? ` ${this.theme.fg("success", "[recommended]")}` : "";
         const reasoningBadge = model.reasoning === false ? this.theme.fg("dim", " [no-thinking]") : "";
         lines.push(row(` ${prefix}${modelText}${recommendedBadge}${reasoningBadge}`, width, this.theme));
       }
@@ -426,15 +477,18 @@ class ArcModelProfilesComponent {
     return ARC_MODEL_PROFILE_KEYS.map((key) => {
       const profile = this.draft.modelProfiles[key];
       const modelInfo = findArcModelInfo(profile?.model, this.models, this.options.preferredProvider);
-      const recommendation = recommendedModelForProfile(key, this.models, this.options.preferredProvider);
-      const recommended = modelMatchesRecommendation(profile?.model, recommendation, this.models, this.options.preferredProvider);
+      const recommended = recommendedModelForProfile(key, this.models, this.options.preferredProvider);
+      const recommendation = recommended.recommendation;
+      const recommendedModel = modelMatchesRecommendation(profile?.model, recommended.model, this.models, this.options.preferredProvider);
       const thinking = profile?.thinking ?? "off";
+      const recommendedThinking = recommendedThinkingForModel(recommendation, recommended.model);
+      const recommendedProfile = recommendedModel && thinking === recommendedThinking;
       const supportedLevels = getSupportedArcThinkingLevels(modelInfo);
       const unsupportedThinking = Boolean(profile?.model && modelInfo && !supportedLevels.includes(thinking));
       let status = "disabled";
       if (profile?.model && !modelInfo) status = "unavailable";
       else if (unsupportedThinking) status = "unsupported thinking";
-      else if (recommended) status = "recommended";
+      else if (recommendedProfile) status = "recommended";
       else if (profile?.model) status = "available";
 
       return {
@@ -442,8 +496,11 @@ class ArcModelProfilesComponent {
         label: PROFILE_LABELS[key],
         model: profile?.model ?? "disabled",
         thinking,
+        recommendationModel: recommended.displayModel,
+        recommendationThinking: recommendation.thinking,
+        recommendationReason: recommendation.reason,
         status,
-        recommended,
+        recommended: recommendedProfile,
       };
     });
   }
@@ -499,13 +556,13 @@ class ArcModelProfilesComponent {
   private applyRecommendedDefaults(): void {
     for (const key of ARC_MODEL_PROFILE_KEYS) {
       const recommended = recommendedModelForProfile(key, this.models, this.options.preferredProvider);
-      if (!recommended) continue;
+      if (!recommended.model) continue;
 
+      const recommendation = recommended.recommendation;
       const profile = this.ensureProfile(key);
-      profile.model = recommended.fullId;
-      const levels = getSupportedArcThinkingLevels(recommended);
-      const current = profile.thinking ?? "off";
-      profile.thinking = levels.includes(current) ? current : "off";
+      profile.model = recommended.model.fullId;
+      const levels = getSupportedArcThinkingLevels(recommended.model);
+      profile.thinking = levels.includes(recommendation.thinking) ? recommendation.thinking : "off";
     }
   }
 

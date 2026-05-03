@@ -16,7 +16,9 @@ import {
 import { Type } from "typebox";
 import {
   type ArcModelProfileKey,
+  type ArcThinkingLevel,
   applyArcThinkingSuffix,
+  getSupportedArcThinkingLevels,
   loadArcModelsConfig,
   resolveArcModelProfile,
   resolveArcModelsConfigPath,
@@ -262,15 +264,23 @@ const ARC_RECOMMENDED_PROFILE_KEYS: ArcModelProfileKey[] = [
   "evaluator",
 ];
 
-const ARC_PROFILE_RECOMMENDATION_TERMS: Record<ArcModelProfileKey, string[]> = {
-  brainstorm: ["large", "opus", "gpt-5.5", "sonnet", "gpt-5"],
-  plan: ["standard", "codex", "sonnet", "gpt-5.3", "gpt-5"],
-  issueManager: ["nano", "haiku", "mini", "small"],
-  builder: ["codex", "standard", "sonnet", "gpt-5.3", "gpt-5"],
-  codeReviewer: ["codex", "standard", "sonnet", "gpt-5.3", "gpt-5"],
-  docWriter: ["small", "mini", "haiku", "nano"],
-  specReviewer: ["standard", "codex", "sonnet", "gpt-5.3", "gpt-5"],
-  evaluator: ["small", "mini", "haiku", "standard"],
+type ArcProfileRecommendation = {
+  modelId: string;
+  thinking: ArcThinkingLevel;
+  reason: string;
+};
+
+const ARC_RECOMMENDED_MODEL_PROVIDER = "openai-codex";
+
+const ARC_PROFILE_RECOMMENDATIONS: Record<ArcModelProfileKey, ArcProfileRecommendation> = {
+  brainstorm: { modelId: "gpt-5.5", thinking: "high", reason: "design exploration and architecture judgment" },
+  plan: { modelId: "gpt-5.5", thinking: "high", reason: "task breakdown and sequencing" },
+  issueManager: { modelId: "gpt-5.4-mini", thinking: "off", reason: "Arc CLI formatting and issue updates" },
+  builder: { modelId: "gpt-5.3-codex", thinking: "medium", reason: "implementation and code navigation" },
+  codeReviewer: { modelId: "gpt-5.5", thinking: "high", reason: "review judgment and risk detection" },
+  docWriter: { modelId: "gpt-5.4-mini", thinking: "low", reason: "documentation prose and light reasoning" },
+  specReviewer: { modelId: "gpt-5.5", thinking: "high", reason: "spec compliance and ambiguity detection" },
+  evaluator: { modelId: "gpt-5.5", thinking: "high", reason: "adversarial validation" },
 };
 
 type BrainstormProfilePromptAction = "recommended" | "customize" | "skip" | "reconfigure" | "fallback" | "disable" | "cancel";
@@ -281,37 +291,41 @@ type BrainstormProfilePromptOption = {
   action: BrainstormProfilePromptAction;
 };
 
-function sortArcModelsForProvider(models: ArcModelInfo[], preferredProvider?: string): ArcModelInfo[] {
+function matchesArcRecommendedModelId(model: ArcModelInfo, modelId: string): boolean {
+  return model.id === modelId || model.fullId.endsWith(`/${modelId}`);
+}
+
+function findRecommendedArcModel(
+  recommendation: ArcProfileRecommendation,
+  models: ArcModelInfo[],
+  preferredProvider?: string,
+): ArcModelInfo | undefined {
+  const candidates = models.filter((model) => matchesArcRecommendedModelId(model, recommendation.modelId));
+  const defaultProvider = candidates.find((model) => model.provider === ARC_RECOMMENDED_MODEL_PROVIDER);
   const provider = preferredProvider?.trim();
-  if (!provider) return [...models];
-  return [...models].sort((a, b) => Number(b.provider === provider) - Number(a.provider === provider));
+  const preferred = provider ? candidates.find((model) => model.provider === provider) : undefined;
+  return defaultProvider ?? preferred ?? candidates[0];
 }
 
 function recommendedArcModelForProfile(
   profileKey: ArcModelProfileKey,
   models: ArcModelInfo[],
   preferredProvider?: string,
-): ArcModelInfo | undefined {
-  const candidates = sortArcModelsForProvider(models, preferredProvider);
-  if (candidates.length === 0) return undefined;
-
-  for (const term of ARC_PROFILE_RECOMMENDATION_TERMS[profileKey]) {
-    const normalizedTerm = term.toLowerCase();
-    const matched = candidates.find((model) => model.fullId.toLowerCase().includes(normalizedTerm));
-    if (matched) return matched;
-  }
-
-  return candidates[0];
+): { recommendation: ArcProfileRecommendation; model?: ArcModelInfo } {
+  const recommendation = ARC_PROFILE_RECOMMENDATIONS[profileKey];
+  return { recommendation, model: findRecommendedArcModel(recommendation, models, preferredProvider) };
 }
 
 function applyRecommendedArcModelProfiles(config: ArcModelsConfig, models: ArcModelInfo[], preferredProvider?: string): ArcModelsConfig {
   for (const profileKey of ARC_RECOMMENDED_PROFILE_KEYS) {
     const recommended = recommendedArcModelForProfile(profileKey, models, preferredProvider);
-    if (!recommended) continue;
+    if (!recommended.model) continue;
+    const recommendation = recommended.recommendation;
+    const levels = getSupportedArcThinkingLevels(recommended.model);
     config.modelProfiles[profileKey] = {
       ...config.modelProfiles[profileKey],
-      model: recommended.fullId,
-      thinking: "off",
+      model: recommended.model.fullId,
+      thinking: levels.includes(recommendation.thinking) ? recommendation.thinking : "off",
     };
   }
   config.setup = { ...config.setup, completedAt: new Date().toISOString(), dismissedAt: null };

@@ -174,11 +174,11 @@ Profile keys map directly to the workflow roles: `brainstorm`, `plan`, `issueMan
   "version": 1,
   "modelProfiles": {
     "brainstorm": {
-      "model": "openai-codex/gpt-5.4-mini",
-      "thinking": "low"
+      "model": "openai-codex/gpt-5.5",
+      "thinking": "high"
     },
     "issueManager": {
-      "model": "openai-codex/gpt-5.4-nano",
+      "model": "openai-codex/gpt-5.4-mini",
       "thinking": "off"
     },
     "builder": {

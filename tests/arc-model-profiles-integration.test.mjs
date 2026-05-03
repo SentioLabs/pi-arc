@@ -6,6 +6,27 @@ function read(path) {
   return readFileSync(path, 'utf8');
 }
 
+function extractConstBlock(source, constName, stopToken) {
+  const start = source.indexOf(`const ${constName}`);
+  assert.notEqual(start, -1, `missing ${constName}`);
+  const end = source.indexOf(stopToken, start);
+  assert.notEqual(end, -1, `missing stop token ${stopToken}`);
+  return source.slice(start, end);
+}
+
+const EXPECTED_RECOMMENDATIONS = [
+  ['brainstorm', 'gpt-5.5', 'high', 'design exploration and architecture judgment'],
+  ['plan', 'gpt-5.5', 'high', 'task breakdown and sequencing'],
+  ['issueManager', 'gpt-5.4-mini', 'off', 'Arc CLI formatting and issue updates'],
+  ['builder', 'gpt-5.3-codex', 'medium', 'implementation and code navigation'],
+  ['codeReviewer', 'gpt-5.5', 'high', 'review judgment and risk detection'],
+  ['docWriter', 'gpt-5.4-mini', 'low', 'documentation prose and light reasoning'],
+  ['specReviewer', 'gpt-5.5', 'high', 'spec compliance and ambiguity detection'],
+  ['evaluator', 'gpt-5.5', 'high', 'adversarial validation'],
+];
+
+const ALLOWED_RECOMMENDED_MODEL_IDS = new Set(['gpt-5.5', 'gpt-5.4-mini', 'gpt-5.3-codex']);
+
 test('arc extension wires model profiles into commands and agent dispatch', () => {
   const source = read('extensions/arc.ts');
 
@@ -38,4 +59,42 @@ test('arc extension wires model profiles into commands and agent dispatch', () =
   ]) {
     assert.match(source, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
+});
+
+test('arc extension recommended profile defaults use exact allowed models and thinking', () => {
+  const source = read('extensions/arc.ts');
+  const block = extractConstBlock(source, 'ARC_PROFILE_RECOMMENDATIONS', 'type BrainstormProfilePromptAction');
+
+  for (const [key, modelId, thinking, reason] of EXPECTED_RECOMMENDATIONS) {
+    assert.match(
+      block,
+      new RegExp(`${key}:\\s*{[^}]*modelId: "${modelId}"[^}]*thinking: "${thinking}"[^}]*reason: "${reason}"`),
+    );
+  }
+
+  const recommendedIds = [...block.matchAll(/modelId:\s*"([^"]+)"/g)].map((match) => match[1]);
+  assert.ok(recommendedIds.length > 0, 'expected recommendation model IDs');
+  assert.ok(recommendedIds.every((id) => ALLOWED_RECOMMENDED_MODEL_IDS.has(id)), `unexpected IDs: ${recommendedIds.join(', ')}`);
+  assert.doesNotMatch(block, /gpt-5\.1|gpt-5\.4-nano|claude|haiku|opus|sonnet/i);
+});
+
+test('arc brainstorm setup applies recommended thinking and avoids unrelated fallback models', () => {
+  const source = read('extensions/arc.ts');
+  assert.match(source, /getSupportedArcThinkingLevels/);
+  assert.match(source, /const levels = getSupportedArcThinkingLevels\(recommended\.model\)/);
+  assert.match(source, /thinking: levels\.includes\(recommendation\.thinking\) \? recommendation\.thinking : "off"/);
+  assert.doesNotMatch(source, /return candidates\[0\]/);
+});
+
+test('README modelProfiles example stays within the recommended model set', () => {
+  const source = read('README.md');
+  const start = source.indexOf('## Arc model profiles');
+  assert.notEqual(start, -1, 'missing Arc model profiles section');
+  const end = source.indexOf('## Sync Arc specialists', start);
+  assert.notEqual(end, -1, 'missing next README section');
+  const section = source.slice(start, end);
+  assert.doesNotMatch(section, /gpt-5\.4-nano|gpt-5\.1|claude|haiku|opus|sonnet/i);
+  assert.match(section, /openai-codex\/gpt-5\.5/);
+  assert.match(section, /openai-codex\/gpt-5\.4-mini/);
+  assert.match(section, /openai-codex\/gpt-5\.3-codex/);
 });
