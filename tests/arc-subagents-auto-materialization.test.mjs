@@ -31,7 +31,16 @@ test('Arc generated subagents record model freshness metadata', () => {
 test('Arc subagent user target prefers modern user agent directory', () => {
   const source = read('extensions/arc/subagents.ts');
 
-  assert.match(source, /"\\.agents"/);
-  assert.match(source, /"\\.pi", "agent", "agents"/);
+  assert.match(source, /"\.agents"/);
+  assert.match(source, /"\.pi", "agent", "agents"/);
   assert.match(source, /legacyUserDir/);
+  assert.equal(source.includes('// "\\.agents" "\\.pi", "agent", "agents"'), false);
+});
+
+test('Arc subagent markdown render accepts ArcSubagentRenderInput contract directly', () => {
+  const source = read('extensions/arc/subagents.ts');
+
+  assert.match(source, /export interface ArcSubagentRenderInput/);
+  assert.match(source, /sourceSha256: string;/);
+  assert.match(source, /buildArcSubagentMarkdown\(input: ArcSubagentRenderInput\): string/);
 });

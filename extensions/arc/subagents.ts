@@ -54,6 +54,7 @@ export interface ArcSubagentRenderInput {
   modelProfileKey: ArcModelProfileKey;
   modelResolutionSource: string;
   modelsConfigHash: string;
+  sourceSha256: string;
   generatedAt: string;
 }
 
@@ -65,8 +66,6 @@ export const ARC_PI_SUBAGENTS = [
   { source: "evaluator", target: "arc-evaluator", profileKey: "evaluator" },
   { source: "issue-manager", target: "arc-issue-manager", profileKey: "issueManager" },
 ] as const;
-
-// "\.agents" "\.pi", "agent", "agents"
 
 export function resolveArcSubagentDir(
   scope: ArcSubagentScope,
@@ -103,7 +102,7 @@ export function buildArcSubagentMetadata(input: {
   ].join("\n");
 }
 
-export function buildArcSubagentMarkdown(input: ArcSubagentRenderInput & { sourceSha256: string }): string {
+export function buildArcSubagentMarkdown(input: ArcSubagentRenderInput): string {
   return `${buildArcSubagentMetadata({
     sourceName: input.sourceName,
     sourceSha256: input.sourceSha256,
