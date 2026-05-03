@@ -124,7 +124,7 @@ type ArcModelTier = "nano" | "small" | "standard" | "large";
 type ArcModelTierMap = Record<ArcModelTier, string>;
 
 const DEFAULT_ARC_MODEL_TIERS: ArcModelTierMap = {
-  nano: "openai-codex/gpt-5.4-nano",
+  nano: "openai-codex/gpt-5.4-mini",
   small: "openai-codex/gpt-5.4-mini",
   standard: "openai-codex/gpt-5.3-codex",
   large: "openai-codex/gpt-5.5",
