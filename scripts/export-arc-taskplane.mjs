@@ -231,11 +231,20 @@ function collectSatisfiedExternalDependencies(epic, selectedIssues, issueLookup)
         continue;
       }
 
-      const dependencyIssue = issueLookup.get(dependencyId);
-      if (dependencyIssue && dependencyIssue.status !== 'open' && dependencyIssue.status !== 'in_progress') {
-        dependencies.push({ id: dependencyIssue.id, title: dependencyIssue.title });
-        seen.add(dependencyIssue.id);
+      let dependencyIssue = issueLookup.get(dependencyId);
+      if (!dependencyIssue) {
+        dependencyIssue = readArcIssue(dependencyId);
+        issueLookup.set(dependencyId, dependencyIssue);
       }
+
+      if (dependencyIssue.status === 'open' || dependencyIssue.status === 'in_progress') {
+        throw new Error(
+          `External dependency ${dependencyIssue.id} is ${dependencyIssue.status}; selected Taskplane export batch is not ready.`,
+        );
+      }
+
+      dependencies.push({ id: dependencyIssue.id, title: dependencyIssue.title });
+      seen.add(dependencyIssue.id);
     }
   }
 
@@ -353,7 +362,7 @@ async function performExport(options) {
   console.log(`/orch ${path.join(options.root, epic.id)}`);
 }
 
-export async function main(argv = process.argv.slice(2)) {
+async function main(argv = process.argv.slice(2)) {
   const options = parseArgs(argv);
   await performExport(options);
 }
@@ -362,11 +371,17 @@ const isDirectRun = process.argv[1]
   && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
 
 if (isDirectRun) {
-  main().catch((error) => {
+  const argv = process.argv.slice(2);
+  if (!argv[0] || argv[0].startsWith('--')) {
+    console.error(USAGE);
+    process.exit(1);
+  }
+
+  main(argv).catch((error) => {
     console.error(error.message);
     if (!String(error.message).includes('Usage:')) {
       console.error(USAGE);
     }
-    process.exitCode = 1;
+    process.exit(1);
   });
 }

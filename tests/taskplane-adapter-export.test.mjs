@@ -1,5 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   buildTaskplaneContext,
   buildTaskplanePrompt,
@@ -7,6 +12,47 @@ import {
   extractValidationCommand,
   formatTaskplaneDependencies,
 } from '../scripts/export-arc-taskplane.mjs';
+
+const scriptPath = fileURLToPath(new URL('../scripts/export-arc-taskplane.mjs', import.meta.url));
+
+function issueDescription({ files = ['scripts/export-arc-taskplane.mjs'], testCommand = 'node --test tests/taskplane-adapter-export.test.mjs' } = {}) {
+  return `## Summary
+Export child task.
+
+## Files
+${files.map((file) => `- Modify: \`${file}\``).join('\n')}
+
+## Test Command
+\`${testCommand}\`
+`;
+}
+
+function createArcFixture(t, issues) {
+  const fixtureDir = mkdtempSync(path.join(tmpdir(), 'arc-export-fixture-'));
+  const arcPath = path.join(fixtureDir, 'arc');
+  writeFileSync(arcPath, `#!/usr/bin/env node
+const issues = ${JSON.stringify(issues)};
+const [, , command, id, jsonFlag] = process.argv;
+if (command !== 'show' || jsonFlag !== '--json') {
+  console.error('Unexpected arc args: ' + process.argv.slice(2).join(' '));
+  process.exit(2);
+}
+if (!Object.hasOwn(issues, id)) {
+  console.error('Missing fixture issue: ' + id);
+  process.exit(3);
+}
+process.stdout.write(JSON.stringify(issues[id]));
+`, { mode: 0o755 });
+
+  t.after(() => rmSync(fixtureDir, { recursive: true, force: true }));
+
+  return {
+    env: {
+      ...process.env,
+      PATH: `${fixtureDir}${path.delimiter}${process.env.PATH ?? ''}`,
+    },
+  };
+}
 
 const epic = { id: 'piarc-0390.epic01', title: 'Spike optional Taskplane adapter' };
 const issue = {
@@ -74,4 +120,83 @@ test('buildTaskplaneContext records tracked packet policy and Arc closure protoc
   assert.match(context, /Generated packets are branch-visible spike artifacts/);
   assert.match(context, /Taskplane `.DONE` does not close Arc/);
   assert.match(context, /piarc-0390\.closed01 — Closed prerequisite/);
+});
+
+test('exporter module does not expose direct-run main function', async () => {
+  const exporterModule = await import('../scripts/export-arc-taskplane.mjs');
+
+  assert.equal(Object.hasOwn(exporterModule, 'main'), false);
+});
+
+test('direct CLI with missing epic ID prints usage and explicitly exits 1', () => {
+  const result = spawnSync(process.execPath, ['--trace-exit', scriptPath], { encoding: 'utf8' });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Usage: node scripts\/export-arc-taskplane\.mjs <epic-id>/);
+  assert.match(result.stderr, /WARNING: Exited the environment with code 1/);
+});
+
+test('CLI export reads closed external dependencies into context', (t) => {
+  const root = mkdtempSync(path.join(tmpdir(), 'arc-export-root-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+
+  const closedDependency = { id: 'piarc-0390.external.closed', title: 'Closed external prerequisite', status: 'closed' };
+  const selectedChild = {
+    id: issue.id,
+    title: issue.title,
+    status: 'open',
+    description: issueDescription(),
+    dependencies: [
+      { issue_id: issue.id, depends_on_id: closedDependency.id, type: 'blocks' },
+    ],
+  };
+  const { env } = createArcFixture(t, {
+    [epic.id]: {
+      ...epic,
+      status: 'open',
+      dependents: [
+        { issue_id: selectedChild.id, depends_on_id: epic.id, type: 'parent-child' },
+      ],
+    },
+    [selectedChild.id]: selectedChild,
+    [closedDependency.id]: closedDependency,
+  });
+
+  const result = spawnSync(process.execPath, [scriptPath, epic.id, '--root', root], { encoding: 'utf8', env });
+
+  assert.equal(result.status, 0, result.stderr);
+  const context = readFileSync(path.join(root, epic.id, 'CONTEXT.md'), 'utf8');
+  assert.match(context, /piarc-0390\.external\.closed — Closed external prerequisite/);
+});
+
+test('CLI export rejects open external dependencies outside selected child issues', (t) => {
+  const root = mkdtempSync(path.join(tmpdir(), 'arc-export-root-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+
+  const openDependency = { id: 'piarc-0390.external.open', title: 'Open external prerequisite', status: 'open' };
+  const selectedChild = {
+    id: issue.id,
+    title: issue.title,
+    status: 'open',
+    description: issueDescription(),
+    dependencies: [
+      { issue_id: issue.id, depends_on_id: openDependency.id, type: 'blocks' },
+    ],
+  };
+  const { env } = createArcFixture(t, {
+    [epic.id]: {
+      ...epic,
+      status: 'open',
+      dependents: [
+        { issue_id: selectedChild.id, depends_on_id: epic.id, type: 'parent-child' },
+      ],
+    },
+    [selectedChild.id]: selectedChild,
+    [openDependency.id]: openDependency,
+  });
+
+  const result = spawnSync(process.execPath, [scriptPath, epic.id, '--root', root], { encoding: 'utf8', env });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /piarc-0390\.external\.open/);
 });
