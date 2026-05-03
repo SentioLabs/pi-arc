@@ -615,6 +615,7 @@ async function materializeArcSubagentsForContext(
   }
 
   const targetDir = resolveArcSubagentDir(scope, ctx.cwd, homeDir);
+  const legacyTargetDir = scope === "user" ? resolveArcSubagentDir(scope, ctx.cwd, homeDir, { legacyUserDir: true }) : undefined;
   const modelsConfigSha256 = sha256Text(normalizedConfigText);
 
   const materialized = await materializeArcSubagents({
@@ -624,6 +625,7 @@ async function materializeArcSubagentsForContext(
     homeDir,
     agentsDir: AGENTS_DIR,
     modelsConfigSha256,
+    allowLegacyUserDirFallback: scope === "user",
     renderAgent: async (source, target) => {
       const sourceMarkdown = await readFile(path.join(AGENTS_DIR, `${source}.md`), "utf8");
       const parsedSource = parseAgentMarkdown(sourceMarkdown);
@@ -663,7 +665,7 @@ async function materializeArcSubagentsForContext(
     },
   });
 
-  if (materialized.targetDir !== targetDir) {
+  if (materialized.targetDir !== targetDir && materialized.targetDir !== legacyTargetDir) {
     throw new Error(`Arc subagent target directory mismatch: expected ${targetDir}, got ${materialized.targetDir}`);
   }
 
@@ -677,9 +679,11 @@ function notifyArcSubagentMaterialization(ctx: ExtensionContext, result: ArcSuba
   if (!hasWarnings) return;
 
   if (ctx.hasUI) {
+    const shadowSummary = result.shadows.slice(0, 2).map((shadow) => `${shadow.agent} at ${shadow.projectPath}`).join("; ");
     ctx.ui.notify(
-      `Arc subagent materialization (${result.reason}): skipped ${skipped.length}, failed ${failed.length}, shadows ${result.shadows.length}`,
-      failed.length > 0 ? "warning" : "info",
+      `Arc subagent materialization (${result.reason}): skipped ${skipped.length}, failed ${failed.length}, shadows ${result.shadows.length}`
+        + (shadowSummary ? `. Project scope wins over user scope: ${shadowSummary}` : ""),
+      failed.length > 0 || result.shadows.length > 0 ? "warning" : "info",
     );
   }
 }
@@ -815,7 +819,7 @@ export default function arcExtension(pi: ExtensionAPI) {
       "Run a bundled Arc specialist agent (builder, reviewer, issue-manager, etc.) in a fresh Pi subprocess. Output is truncated to 50KB/2000 lines.",
     promptSnippet: "Delegate Arc issue-management, implementation, review, docs, and evaluation tasks to bundled specialist agents.",
     promptGuidelines: [
-      "Prefer true pi-subagents Arc specialists (arc-builder, arc-issue-manager, arc-code-reviewer, etc.) when synced so long runs can be monitored with /subagents-status.",
+      "Prefer true pi-subagents Arc specialists (arc-builder, arc-issue-manager, arc-code-reviewer, etc.) when available/auto-materialized so long runs can be monitored with /subagents-status.",
       "For bulk issue creation, do not use arc_agent issue-manager when subagent({ action: \"list\" }) shows arc-issue-manager; dispatch arc-issue-manager asynchronously instead.",
       "Use arc_agent only as the self-contained fallback when Arc pi-subagents definitions are unavailable or a workflow skill explicitly asks for the fallback.",
       "Right-size fallback arc_agent dispatches with model tiers: nano for bulk CLI issue creation, small for mechanical/docs tasks, standard for normal contained work, large for complex or high-risk work.",
@@ -1010,7 +1014,7 @@ export default function arcExtension(pi: ExtensionAPI) {
       const shadowDetails = materialized.shadows.map((shadow) => {
         const generatedLabel = shadow.generated ? "generated" : "non-generated";
         const staleLabel = shadow.stale ? "stale" : "current";
-        return `- ${shadow.agent}: project=\`${shadow.projectPath}\`, user=\`${shadow.userPath}\` (${generatedLabel}, ${staleLabel})`;
+        return `- ${shadow.agent}: project=\`${shadow.projectPath}\`, user=\`${shadow.userPath}\` (${generatedLabel}, ${staleLabel}; project scope wins over user scope)`;
       });
 
       const detailSections: string[] = [];

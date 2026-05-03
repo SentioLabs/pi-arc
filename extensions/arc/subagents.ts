@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { ArcModelProfileKey } from "./model-profiles.ts";
@@ -135,6 +135,34 @@ function equivalentGeneratedArcSubagent(actual: string, expected: string): boole
   return withoutGeneratedAt(actual) === withoutGeneratedAt(expected);
 }
 
+async function isDirectory(dir: string): Promise<boolean> {
+  try {
+    return (await stat(dir)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+async function nearestArcProjectRoot(cwd: string): Promise<string> {
+  let current = path.resolve(cwd);
+  const root = path.parse(current).root;
+  while (true) {
+    if (await isDirectory(path.join(current, ".pi")) || await isDirectory(path.join(current, ".agents"))) {
+      return current;
+    }
+    if (current === root) return path.resolve(cwd);
+    current = path.dirname(current);
+  }
+}
+
+async function arcProjectShadowPaths(cwd: string, target: string): Promise<string[]> {
+  const projectRoot = await nearestArcProjectRoot(cwd);
+  return [
+    path.join(projectRoot, ".agents", `${target}.md`),
+    path.join(projectRoot, ".pi", "agents", `${target}.md`),
+  ];
+}
+
 export function buildArcSubagentMarkdown(input: ArcSubagentRenderInput): string {
   const metadata = buildArcSubagentMetadata({
     sourceName: input.sourceName,
@@ -172,9 +200,39 @@ export async function materializeArcSubagents(input: {
   modelsConfigSha256: string;
   renderAgent: (source: string, target: string) => Promise<string>;
   legacyUserDir?: boolean;
+  allowLegacyUserDirFallback?: boolean;
 }): Promise<ArcSubagentMaterializationResult> {
+  const result = await materializeArcSubagentsOnce(input);
+  if (shouldRetryLegacyUserDir(input, result)) {
+    return materializeArcSubagentsOnce({ ...input, legacyUserDir: true, allowLegacyUserDirFallback: false });
+  }
+  return result;
+}
+
+function shouldRetryLegacyUserDir(
+  input: Parameters<typeof materializeArcSubagents>[0],
+  result: ArcSubagentMaterializationResult,
+): boolean {
+  return input.scope === "user"
+    && Boolean(input.allowLegacyUserDirFallback)
+    && !input.legacyUserDir
+    && result.writes.some((entry) => entry.status === "failed" && isTargetDirIoFailure(entry.reason));
+}
+
+function isTargetDirIoFailure(reason: string | undefined): boolean {
+  return Boolean(reason?.startsWith("could not read existing target:") || reason?.startsWith("could not write target:"));
+}
+
+async function materializeArcSubagentsOnce(input: Parameters<typeof materializeArcSubagents>[0]): Promise<ArcSubagentMaterializationResult> {
   const targetDir = resolveArcSubagentDir(input.scope, input.cwd, input.homeDir, { legacyUserDir: input.legacyUserDir });
-  await mkdir(targetDir, { recursive: true });
+  try {
+    await mkdir(targetDir, { recursive: true });
+  } catch (error) {
+    if (input.scope === "user" && input.allowLegacyUserDirFallback && !input.legacyUserDir) {
+      return materializeArcSubagentsOnce({ ...input, legacyUserDir: true, allowLegacyUserDirFallback: false });
+    }
+    throw error;
+  }
 
   const writes: ArcSubagentWriteResult[] = [];
   const shadows: ArcSubagentShadowWarning[] = [];
@@ -182,7 +240,7 @@ export async function materializeArcSubagents(input: {
   for (const { source, target } of ARC_PI_SUBAGENTS) {
     const sourcePath = path.join(input.agentsDir, `${source}.md`);
     const targetPath = path.join(targetDir, `${target}.md`);
-    const projectPath = path.join(input.cwd, ".pi", "agents", `${target}.md`);
+    const projectPaths = input.scope === "user" ? await arcProjectShadowPaths(input.cwd, target) : [];
 
     try {
       const rendered = await input.renderAgent(source, target);
@@ -205,8 +263,19 @@ export async function materializeArcSubagents(input: {
       }
 
       if (existing === undefined) {
-        await writeFile(targetPath, rendered, "utf8");
-        writes.push({ agent: target, source: sourcePath, target: targetPath, status: "written" });
+        try {
+          await writeFile(targetPath, rendered, "utf8");
+          writes.push({ agent: target, source: sourcePath, target: targetPath, status: "written" });
+        } catch (error) {
+          writes.push({
+            agent: target,
+            source: sourcePath,
+            target: targetPath,
+            status: "failed",
+            reason: `could not write target: ${error instanceof Error ? error.message : String(error)}`,
+          });
+          continue;
+        }
       } else if (!isGeneratedArcSubagent(existing)) {
         writes.push({
           agent: target,
@@ -218,11 +287,23 @@ export async function materializeArcSubagents(input: {
       } else if (existing === rendered || equivalentGeneratedArcSubagent(existing, rendered)) {
         writes.push({ agent: target, source: sourcePath, target: targetPath, status: "unchanged" });
       } else {
-        await writeFile(targetPath, rendered, "utf8");
-        writes.push({ agent: target, source: sourcePath, target: targetPath, status: "written" });
+        try {
+          await writeFile(targetPath, rendered, "utf8");
+          writes.push({ agent: target, source: sourcePath, target: targetPath, status: "written" });
+        } catch (error) {
+          writes.push({
+            agent: target,
+            source: sourcePath,
+            target: targetPath,
+            status: "failed",
+            reason: `could not write target: ${error instanceof Error ? error.message : String(error)}`,
+          });
+          continue;
+        }
       }
 
-      if (input.scope === "user" && path.resolve(projectPath) !== path.resolve(targetPath)) {
+      for (const projectPath of projectPaths) {
+        if (path.resolve(projectPath) === path.resolve(targetPath)) continue;
         try {
           const projectContent = await readFile(projectPath, "utf8");
           const generated = isGeneratedArcSubagent(projectContent);
@@ -234,8 +315,8 @@ export async function materializeArcSubagents(input: {
             generated,
             stale: generated && (!hasCurrentModelConfig || !equivalentGeneratedArcSubagent(projectContent, rendered)),
             message: generated
-              ? `Project shadow detected at ${projectPath}`
-              : `Project shadow detected at ${projectPath} (non-generated)`,
+              ? `Project shadow detected at ${projectPath}; pi-subagents project scope wins over user scope ${targetPath}`
+              : `Project shadow detected at ${projectPath} (non-generated); pi-subagents project scope wins over user scope ${targetPath}`,
           });
         } catch (error) {
           if (errorCode(error) !== "ENOENT") {
@@ -245,7 +326,7 @@ export async function materializeArcSubagents(input: {
               userPath: targetPath,
               generated: false,
               stale: false,
-              message: `Could not inspect project shadow at ${projectPath}: ${error instanceof Error ? error.message : String(error)}`,
+              message: `Could not inspect project shadow at ${projectPath}; pi-subagents project scope may still win over user scope ${targetPath}: ${error instanceof Error ? error.message : String(error)}`,
             });
           }
         }
