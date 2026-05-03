@@ -152,9 +152,9 @@ When the batch meets the large/resumable threshold, ask the user before switchin
 
 ### Parallel
 
-Parallel worktree dispatch is available **only** through the optional `pi-subagents` companion package, not through `arc_agent`. Use it only when ALL of these are true:
-- `pi-subagents` is installed and the `subagent` tool is available
-- Arc agent definitions such as `arc-builder` / `arc-doc-writer` are installed for `pi-subagents`
+Parallel worktree dispatch is available **only** through the bundled `pi-subagents` extension/tool, not through `arc_agent`. Use it only when ALL of these are true:
+- `pi-subagents` loaded and the `subagent` tool is available
+- Arc agent definitions such as `arc-builder` / `arc-doc-writer` are auto-materialized for `pi-subagents`
 - 3+ independent tasks remain, or one high-risk evaluator needs a disposable worktree
 - No shared files between any builder/doc-writer tasks in the batch
 - No `blocks`/`blockedBy` dependencies between tasks in the batch

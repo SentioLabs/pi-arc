@@ -57,6 +57,7 @@ test('arc extension wires model profiles into commands and agent dispatch', () =
     'modelPattern',
     'buildArcSubagentMarkdown',
     'materializeArcSubagentsForContext',
+    'saveArcModelsConfigWithMaterialization',
   ]) {
     assert.match(source, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
@@ -79,11 +80,16 @@ test('arc extension recommended profile defaults use exact allowed models and th
   assert.doesNotMatch(block, /gpt-5\.1|gpt-5\.4-(?!mini\b)[a-z0-9-]+|claude|haiku|opus|sonnet/i);
 });
 
-test('arc-models save refreshes generated Arc subagents', () => {
+test('model profile saves refresh generated Arc subagents', () => {
   const source = read('extensions/arc.ts');
   assert.match(source, /openAndMaybeSaveArcModelProfiles/);
+  assert.match(source, /async function saveArcModelsConfigWithMaterialization/);
+  assert.match(source, /saveArcModelsConfigWithMaterialization\(ctx, result\.config, configPath\)/);
   assert.match(source, /materializeArcSubagentsForContext\(ctx, "arc_models_save"\)/);
   assert.match(source, /notifyArcSubagentMaterialization\(ctx, materialized\)/);
+  assert.match(source, /action === "recommended"\)[\s\S]*saveArcModelsConfigWithMaterialization\(ctx, config, configPath\)/);
+  assert.match(source, /action === "customize"\) return openAndMaybeSaveArcModelProfiles\(ctx, config, configPath, preferredProvider, true\)/);
+  assert.match(source, /registerCommand\("arc-models"[\s\S]*openAndMaybeSaveArcModelProfiles\(ctx, config, configPath, ctx\.model\?\.provider, false\)/);
 });
 
 test('arc brainstorm setup applies recommended thinking and avoids unrelated fallback models', () => {
