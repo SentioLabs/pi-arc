@@ -88,6 +88,16 @@ test('arc-review prefers arc-code-reviewer via pi-subagents before arc_agent fal
   assert.match(source, /arc_agent\(agent="code-reviewer"/);
 });
 
+test('arc-code-reviewer dispatch prompt stays review-only for pi-subagents completion guard', () => {
+  const source = read('skills/arc-review/code-reviewer-prompt.md');
+  assert.match(source, /Review only/i);
+  assert.match(source, /return findings only/i);
+  assert.match(source, /Do not edit files/i);
+  assert.doesNotMatch(source, /\bmust\s+(?:edit|modify|change|fix|patch|apply)\b/i);
+  assert.doesNotMatch(source, /\bapply\s+(?:the\s+)?fix(?:es)?\s+directly\b/i);
+  assert.doesNotMatch(source, /\bmake\s+(?:the\s+)?code\s+changes\b/i);
+});
+
 test('README documents auto-materialized specialists and status semantics', () => {
   const source = read('README.md');
   assert.match(source, /auto-materialized/i);
