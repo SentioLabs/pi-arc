@@ -212,8 +212,8 @@ Dispatch preference (use **async** so long-running issue creation appears in `/s
 - After launching async, **wait for terminal status** by polling `subagent({ action: "status", id: "<run-id>" })` until status is `completed` or `failed`
 - Users can monitor progress via `/subagents-status` during the async run
 - If `subagent({ action: "list" })` shows `arc-issue-manager`, do **not** use the slower `arc_agent(agent="issue-manager")` fallback for bulk issue creation
-- If `subagent` unavailable or `arc-issue-manager` missing: run `/arc-subagents-sync`, then `subagent({ action: "list" })` to verify, then retry primary
-- Fallback only if `pi-subagents` is not installed or cannot load after sync: `arc_agent(agent="issue-manager", task="<manifest below>")`
+- Arc issue-manager should be auto-materialized; if it is missing, first run `subagent({ action: "doctor" })` and inspect Arc's materialization warning. Use `/arc-subagents-sync` only as a deprecated repair command, then re-check with `subagent({ action: "list" })`
+- Fallback only if `pi-subagents` is not installed or cannot load after deprecated repair: `arc_agent(agent="issue-manager", task="<manifest below>")`
 
 Use this task payload for whichever dispatcher you choose:
 
