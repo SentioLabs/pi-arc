@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/SentioLabs/pi-arc/compare/v0.9.1...v0.10.0) (2026-05-11)
+
+
+### Features
+
+* **arc:** auto-materialize Arc pi-subagents ([#17](https://github.com/SentioLabs/pi-arc/issues/17)) ([19dde3b](https://github.com/SentioLabs/pi-arc/commit/19dde3b79ff6df78acc3b9730fb909e7be470493))
+
 ## [0.9.1](https://github.com/SentioLabs/pi-arc/compare/v0.9.0...v0.9.1) (2026-05-03)
 
 
