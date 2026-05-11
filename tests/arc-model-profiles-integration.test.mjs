@@ -56,6 +56,8 @@ test('arc extension wires model profiles into commands and agent dispatch', () =
     'profileKey',
     'modelPattern',
     'buildArcSubagentMarkdown',
+    'materializeArcSubagentsForContext',
+    'saveArcModelsConfigWithMaterialization',
   ]) {
     assert.match(source, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
@@ -75,7 +77,19 @@ test('arc extension recommended profile defaults use exact allowed models and th
   const recommendedIds = [...block.matchAll(/modelId:\s*"([^"]+)"/g)].map((match) => match[1]);
   assert.ok(recommendedIds.length > 0, 'expected recommendation model IDs');
   assert.ok(recommendedIds.every((id) => ALLOWED_RECOMMENDED_MODEL_IDS.has(id)), `unexpected IDs: ${recommendedIds.join(', ')}`);
-  assert.doesNotMatch(block, /gpt-5\.1|gpt-5\.4-nano|claude|haiku|opus|sonnet/i);
+  assert.doesNotMatch(block, /gpt-5\.1|gpt-5\.4-(?!mini\b)[a-z0-9-]+|claude|haiku|opus|sonnet/i);
+});
+
+test('model profile saves refresh generated Arc subagents', () => {
+  const source = read('extensions/arc.ts');
+  assert.match(source, /openAndMaybeSaveArcModelProfiles/);
+  assert.match(source, /async function saveArcModelsConfigWithMaterialization/);
+  assert.match(source, /saveArcModelsConfigWithMaterialization\(ctx, result\.config, configPath\)/);
+  assert.match(source, /materializeArcSubagentsForContext\(ctx, "arc_models_save"\)/);
+  assert.match(source, /notifyArcSubagentMaterialization\(ctx, materialized\)/);
+  assert.match(source, /action === "recommended"\)[\s\S]*saveArcModelsConfigWithMaterialization\(ctx, config, configPath\)/);
+  assert.match(source, /action === "customize"\) return openAndMaybeSaveArcModelProfiles\(ctx, config, configPath, preferredProvider, true\)/);
+  assert.match(source, /registerCommand\("arc-models"[\s\S]*openAndMaybeSaveArcModelProfiles\(ctx, config, configPath, ctx\.model\?\.provider, false\)/);
 });
 
 test('arc brainstorm setup applies recommended thinking and avoids unrelated fallback models', () => {
@@ -93,7 +107,7 @@ test('README modelProfiles example stays within the recommended model set', () =
   const end = source.indexOf('## Sync Arc specialists', start);
   assert.notEqual(end, -1, 'missing next README section');
   const section = source.slice(start, end);
-  assert.doesNotMatch(section, /gpt-5\.4-nano|gpt-5\.1|claude|haiku|opus|sonnet/i);
+  assert.doesNotMatch(section, /gpt-5\.4-(?!mini\b)[a-z0-9-]+|gpt-5\.1|claude|haiku|opus|sonnet/i);
   assert.match(section, /openai-codex\/gpt-5\.5/);
   assert.match(section, /openai-codex\/gpt-5\.4-mini/);
   assert.match(section, /openai-codex\/gpt-5\.3-codex/);

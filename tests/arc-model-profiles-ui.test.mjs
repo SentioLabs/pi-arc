@@ -87,7 +87,7 @@ test('arc model profiles UI uses exact allowed profile recommendations', () => {
   const recommendedIds = [...block.matchAll(/modelId:\s*"([^"]+)"/g)].map((match) => match[1]);
   assert.ok(recommendedIds.length > 0, 'expected recommendation model IDs');
   assert.ok(recommendedIds.every((id) => ALLOWED_RECOMMENDED_MODEL_IDS.has(id)), `unexpected IDs: ${recommendedIds.join(', ')}`);
-  assert.doesNotMatch(block, /gpt-5\.1|gpt-5\.4-nano|claude|haiku|opus|sonnet/i);
+  assert.doesNotMatch(block, /gpt-5\.1|gpt-5\.4-(?!mini\b)[a-z0-9-]+|claude|haiku|opus|sonnet/i);
 });
 
 test('arc model profiles UI applies recommended thinking and does not fall back to unrelated models', () => {
